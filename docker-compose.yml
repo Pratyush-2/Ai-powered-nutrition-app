@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  nutrition-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./data/app.db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - HF_API_TOKEN=${HF_API_TOKEN}
+      - FAISS_INDEX_PATH=backend/indexes/nutrition.index
+      - EMB_MODEL=all-MiniLM-L6-v2
+      - RF_MODEL_PATH=models/random_forest_model.pkl
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./backend/indexes:/app/backend/indexes
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

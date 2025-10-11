@@ -24,3 +24,8 @@ def get_profile(user_id: int, db: Session = Depends(get_db)):
     if not profile:
         raise HTTPException(status_code=404, detail=f"User profile {user_id} not found")
     return profile
+
+# ---------- Update user profile by ID ----------
+@router.put("/{user_id}", response_model=schemas.UserProfile)
+def update_profile(user_id: int, profile: schemas.UserProfileCreate, db: Session = Depends(get_db)):
+    return crud.update_user_profile(db=db, user_id=user_id, profile=profile)

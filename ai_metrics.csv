@@ -1,0 +1,5 @@
+timestamp,user_id,service_type,prediction,confidence,processing_time
+2025-10-11T19:18:12.402123,1,test,test_prediction,0.85,0.1
+2025-10-11T19:19:41.358288,1,test,test_prediction,0.85,0.1
+2025-10-11T19:21:10.027310,1,test,test_prediction,0.85,0.1
+2025-10-11T19:22:37.135897,1,test,test_prediction,0.85,0.1

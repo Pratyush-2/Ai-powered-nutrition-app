@@ -1,19 +1,21 @@
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from . import crud, schemas
+from . import crud, schemas, utils
 from .database import get_db, engine, Base
 from .user_profiles import router as profiles_router
-from .recommendations import router as recommendations_router
-from .services import food_search
+from backend.ai.ai_routes import router as ai_router
 
+# Create DB tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Nutrition API")
 
+origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -21,9 +23,9 @@ app.add_middleware(
 
 # Routers
 app.include_router(profiles_router)
-app.include_router(recommendations_router)
+app.include_router(ai_router)
 
-# Foods
+# Food endpoints
 @app.post("/foods/", response_model=schemas.Food)
 def create_food(food: schemas.FoodCreate, db: Session = Depends(get_db)):
     return crud.create_food(db=db, food=food)
@@ -32,32 +34,26 @@ def create_food(food: schemas.FoodCreate, db: Session = Depends(get_db)):
 def read_foods(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return crud.get_foods(db=db, skip=skip, limit=limit)
 
-@app.get("/search-food/{food_name}")
-def search_food(food_name: str):
-    return food_search.search_food_by_name(food_name)
-
 # Daily Logs
 @app.post("/logs/", response_model=schemas.DailyLog)
 def create_log(log: schemas.DailyLogCreate, db: Session = Depends(get_db)):
     return crud.create_daily_log(db=db, log=log)
 
-@app.get("/logs/", response_model=list[schemas.DailyLog])
-def read_logs(date: str, db: Session = Depends(get_db)):
-    return crud.get_logs_by_date(db=db, date=date)
+@app.get("/logs/{log_date}", response_model=list[schemas.DailyLog])
+def read_logs(log_date: str, db: Session = Depends(get_db)):
+    return crud.get_logs_by_date(db=db, date=log_date)
 
-@app.get("/totals/{date}")
-def get_totals(date: str, db: Session = Depends(get_db)):
-    return crud.get_daily_totals(db=db, date=date)
+# Totals
+@app.get("/totals/{log_date}", response_model=schemas.DailyTotals)
+def get_daily_totals(log_date: str, db: Session = Depends(get_db)):
+    totals = utils.calculate_goals(db, log_date)
+    return schemas.DailyTotals(date=log_date, **totals)
 
 # Goals
 @app.post("/goals/", response_model=schemas.UserGoal)
 def set_goal(goal: schemas.UserGoalCreate, db: Session = Depends(get_db)):
     return crud.set_goal(db=db, goal=goal)
 
-@app.get("/goals/all/", response_model=list[schemas.UserGoal])
-def get_all_goals(db: Session = Depends(get_db)):
-    return db.query(crud.models.UserGoal).all()
-
-@app.get("/goals/{user_id}", response_model=list[schemas.UserGoal])
-def get_user_goals(user_id: int, db: Session = Depends(get_db)):
-    return crud.get_goals(db=db, user_id=user_id)
+@app.get("/goals/", response_model=list[schemas.UserGoal])
+def get_goals(db: Session = Depends(get_db)):
+    return crud.get_goals(db=db)

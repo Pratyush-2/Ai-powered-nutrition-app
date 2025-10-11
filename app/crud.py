@@ -33,6 +33,19 @@ def get_user_profile(db: Session, user_id: int):
 def get_user_profiles(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.UserProfile).offset(skip).limit(limit).all()
 
+def update_user_profile(db: Session, user_id: int, profile: schemas.UserProfileCreate):
+    db_profile = get_user_profile(db, user_id)
+    if not db_profile:
+        raise HTTPException(status_code=404, detail=f"User profile {user_id} not found")
+
+    for var, value in vars(profile).items():
+        setattr(db_profile, var, value) if value else None
+
+    db.add(db_profile)
+    db.commit()
+    db.refresh(db_profile)
+    return db_profile
+
 # ---------- Foods ----------
 def create_food(db: Session, food: schemas.FoodCreate):
     db_food = models.Food(**food.dict())
@@ -43,6 +56,12 @@ def create_food(db: Session, food: schemas.FoodCreate):
 
 def get_foods(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Food).offset(skip).limit(limit).all()
+
+def get_food(db: Session, food_id: int):
+    return db.query(models.Food).filter(models.Food.id == food_id).first()
+
+def get_food_by_name(db: Session, food_name: str):
+    return db.query(models.Food).filter(models.Food.name == food_name).first()
 
 # ---------- Daily Logs ----------
 def create_daily_log(db: Session, log: schemas.DailyLogCreate):
@@ -73,6 +92,10 @@ def create_daily_log(db: Session, log: schemas.DailyLogCreate):
 
 def get_logs_by_date(db: Session, date: str):
     return db.query(models.DailyLog).filter(models.DailyLog.date == date).all()
+
+def get_logs_by_user(db: Session, user_id: int, limit: int = 5):
+    """Retrieve the most recent DailyLog entries for a user."""
+    return db.query(models.DailyLog).filter(models.DailyLog.user_id == user_id).order_by(models.DailyLog.date.desc()).limit(limit).all()
 
 def get_daily_totals(db: Session, date: str):
     logs = get_logs_by_date(db, date)
