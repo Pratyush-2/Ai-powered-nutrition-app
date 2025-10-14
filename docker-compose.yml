@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=sqlite:///./data/app.db
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/nutrition_db
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - HF_API_TOKEN=${HF_API_TOKEN}
       - FAISS_INDEX_PATH=backend/indexes/nutrition.index
@@ -18,6 +18,7 @@ services:
       - ./backend/indexes:/app/backend/indexes
     depends_on:
       - redis
+      - postgres
     restart: unless-stopped
 
   redis:
@@ -28,5 +29,18 @@ services:
     volumes:
       - redis_data:/data
 
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=nutrition_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
 volumes:
   redis_data:
+  postgres_data:

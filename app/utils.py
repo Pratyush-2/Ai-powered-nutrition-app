@@ -1,9 +1,15 @@
-from . import schemas
+from sqlalchemy.orm import Session
+from . import schemas, crud
 
-def calculate_targets(profile: schemas.UserProfileCreate):
+def calculate_targets(db: Session, user_id: int):
     """
     Calculates target calories, protein, carbs, and fats based on user profile.
     """
+    profile = crud.get_user_profile_by_id(db, user_id)
+    if not profile:
+        # Handle case where profile is not found, perhaps raise an exception or return default values
+        return 0, 0, 0, 0 # Or raise HTTPException
+
     if profile.gender.lower() == 'male':
         bmr = 88.362 + (13.397 * profile.weight_kg) + (4.799 * profile.height_cm) - (5.677 * profile.age)
     else:

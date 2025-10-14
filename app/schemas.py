@@ -17,20 +17,21 @@ class Food(FoodBase):
     id: int
 
     class Config:
-        from_attributes = True  # Pydantic v2 replacement for orm_mode
+        from_attributes = True
 
-# ---------- Daily Logs ----------
+# ---------- DailyLog ----------
 class DailyLogBase(BaseModel):
-    date: date
-    quantity: int
+    quantity: float
     food_id: int
+    user_id: int
 
 class DailyLogCreate(DailyLogBase):
-    pass
+    date: str  # Accept date as string from Flutter
 
 class DailyLog(DailyLogBase):
     id: int
-    food: Food | None = None
+    date: date  # Database returns date object
+    food: Optional[Food] = None
 
     class Config:
         from_attributes = True
@@ -51,7 +52,7 @@ class UserGoalBase(BaseModel):
     fats_goal: float
 
 class UserGoalCreate(UserGoalBase):
-    pass
+    user_id: int  # Add this field
 
 class UserGoal(UserGoalBase):
     id: int
@@ -83,3 +84,16 @@ class UserProfileResponse(UserProfileBase):
 
     class Config:
         from_attributes = True
+
+class FactOut(BaseModel):
+    food_name: str
+    recommended: bool
+    reason: str
+
+class ChatRequest(BaseModel):
+    query: str
+    user_id: int
+
+class ClassifyRequest(BaseModel):
+    food_name: str
+    user_id: int

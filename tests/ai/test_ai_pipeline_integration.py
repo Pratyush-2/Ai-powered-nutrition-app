@@ -18,7 +18,7 @@ import sqlite3
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from backend.ai.fetch_openfoodfacts import OpenFoodFactsFetcher
+from app.ai.fetch_openfoodfacts import OpenFoodFactsFetcher
 from backend.ai.embeddings import NutritionEmbeddings
 from backend.ai.retriever import NutritionRetriever
 from backend.ai.train_rf import FoodRecommendationTrainer
@@ -226,8 +226,10 @@ class TestAIPipelineIntegration:
             "carbs_100g": 10,
             "fat_100g": 5
         }
-        
-        recommended, confidence, explanation = model.predict_with_confidence(nutrition_data)
+        results = model.predict_multiple_with_confidence(nutrition_data)
+        assert isinstance(results, list)
+        assert len(results) > 0
+        recommended, confidence, explanation = results[0]["recommended"], results[0]["confidence"], results[0]["explanation"]
         
         assert isinstance(recommended, bool)
         assert 0 <= confidence <= 1
@@ -247,7 +249,7 @@ class TestAIPipelineIntegration:
         }]
 
         # Patch _initialize_backends to prevent actual OpenAI client initialization
-        with patch('backend.ai.llm_service.LLMService._initialize_backends'):
+        with patch('backend.ai.llm_service.openai') as mock_openai:
             llm = LLMService(openai_api_key="test_key")
             
             # Manually create and assign a MagicMock for openai_client
@@ -365,7 +367,10 @@ class TestAIPipelineIntegration:
                 "fat_100g": fact["meta"]["fat_100g"]
             }
             
-            recommended, confidence, explanation = model.predict_with_confidence(nutrition_data)
+            results = model.predict_multiple_with_confidence(nutrition_data)
+            assert isinstance(results, list)
+            assert len(results) > 0
+            recommended, confidence, explanation = results[0]["recommended"], results[0]["confidence"], results[0]["explanation"]
             
             assert isinstance(recommended, bool)
             assert 0 <= confidence <= 1
