@@ -97,13 +97,13 @@ class TestAIEndpoints:
              patch('backend.ai.ai_routes.predict_food_recommendation') as mock_predict, \
              patch('backend.ai.ai_routes.retrieve_facts') as mock_retrieve, \
              patch('backend.ai.ai_routes.generate_explanation') as mock_llm:
-            
             mock_get_food.return_value = {
                 "name": "Apple",
                 "calories_100g": 52,
                 "protein_100g": 0.3,
                 "carbs_100g": 14,
-                "fat_100g": 0.2
+                "fat_100g": 0.2,
+                "food_id": 1
             }
             mock_predict.return_value = (True, 0.85, "Good nutritional profile")
             mock_retrieve.return_value = [

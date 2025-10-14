@@ -1,14 +1,33 @@
 from app.schemas import UserProfile, Food
 
-def predict_food_recommendation(user: UserProfile, food: Food) -> str:
+def predict_food_recommendation(user: UserProfile, food: Food) -> list:
     """
-    This is a placeholder for a trained Random Forest model.
-    It simulates the model's output by returning a "recommend" or "not recommend" decision.
+    Generates a list of ranked recommendations (top 3) based on nutritional heuristics.
     """
-    # In a real implementation, you would use a trained model to make a prediction
-    # based on the user's profile and the food's nutritional information.
-    # For this MVP, we'll use a simple heuristic.
+    recommendations = []
+    # Heuristic 1: Prioritize low-calorie, high-protein foods
     if food.calories < 500 and food.protein > 10:
-        return "recommend"
-    else:
-        return "not recommend"
+        recommendations.append({
+            'food_id': food.id,
+            'recommendation': 'recommend',
+            'confidence': 0.85,
+            'reason': 'Low calorie, high protein'
+        })
+    # Heuristic 2: Consider moderate-calorie, balanced macros
+    elif 300 < food.calories < 600 and food.protein > 8 and food.fat < 20:
+        recommendations.append({
+            'food_id': food.id,
+            'recommendation': 'recommend',
+            'confidence': 0.75,
+            'reason': 'Balanced macros'
+        })
+    # Heuristic 3: Flag high-sugar foods
+    if food.sugar > 20:
+        recommendations.append({
+            'food_id': food.id,
+            'recommendation': 'caution',
+            'confidence': 0.9,
+            'reason': 'High sugar content'
+        })
+    # Return top 3 recommendations
+    return recommendations[:3]

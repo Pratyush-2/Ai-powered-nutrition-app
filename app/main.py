@@ -1,10 +1,23 @@
-from fastapi import FastAPI, Depends
+import sys
+import os
+import logging
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Configure logging for Uvicorn access logs
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("uvicorn.access")
+logger.setLevel(logging.INFO)
+
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from . import crud, schemas, utils
 from .database import get_db, engine, Base
 from .user_profiles import router as profiles_router
-from backend.ai.ai_routes import router as ai_router
+from app.ai.ai_routes import router as ai_router
+from app.services.food_search import search_food_by_name
+from typing import Optional
+# from app.routers import chat
 
 # Create DB tables
 Base.metadata.create_all(bind=engine)
@@ -24,6 +37,7 @@ app.add_middleware(
 # Routers
 app.include_router(profiles_router)
 app.include_router(ai_router)
+# app.include_router(chat.router)
 
 # Food endpoints
 @app.post("/foods/", response_model=schemas.Food)
@@ -37,17 +51,38 @@ def read_foods(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
 # Daily Logs
 @app.post("/logs/", response_model=schemas.DailyLog)
 def create_log(log: schemas.DailyLogCreate, db: Session = Depends(get_db)):
-    return crud.create_daily_log(db=db, log=log)
+    print(f"DEBUG: Creating log - user_id: {log.user_id}, food_id: {log.food_id}, quantity: {log.quantity}, date: {log.date}")
+    try:
+        result = crud.create_daily_log(db=db, log=log)
+        print(f"DEBUG: Log created successfully - id: {result.id}")
+        return result
+    except ValueError as e:
+        print(f"DEBUG: ValueError in create_log: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        print(f"DEBUG: Unexpected error in create_log: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.get("/logs/{log_date}", response_model=list[schemas.DailyLog])
-def read_logs(log_date: str, db: Session = Depends(get_db)):
-    return crud.get_logs_by_date(db=db, date=log_date)
+@app.get("/logs/", response_model=list[schemas.DailyLog])
+def read_logs(user_id: int, log_date: Optional[str] = None, db: Session = Depends(get_db)):
+    if log_date:
+        return crud.get_logs_by_date_and_user(db=db, user_id=user_id, date=log_date)
+    return crud.get_logs_by_user(db=db, user_id=user_id)
+
+@app.delete("/logs/{log_id}")
+def delete_log(log_id: int, db: Session = Depends(get_db)):
+    return crud.delete_daily_log(db, log_id=log_id)
 
 # Totals
-@app.get("/totals/{log_date}", response_model=schemas.DailyTotals)
-def get_daily_totals(log_date: str, db: Session = Depends(get_db)):
-    totals = utils.calculate_goals(db, log_date)
+@app.get("/totals/{user_id}/{log_date}", response_model=schemas.DailyTotals)
+def get_daily_totals(user_id: int, log_date: str, db: Session = Depends(get_db)):
+    # Get actual consumed totals for the specific date
+    totals = crud.get_daily_totals_by_user(db, user_id, log_date)
     return schemas.DailyTotals(date=log_date, **totals)
+
+@app.get("/search-food/{food_name}", response_model=dict)
+def search_food(food_name: str):
+    return search_food_by_name(food_name)
 
 # Goals
 @app.post("/goals/", response_model=schemas.UserGoal)
@@ -56,4 +91,12 @@ def set_goal(goal: schemas.UserGoalCreate, db: Session = Depends(get_db)):
 
 @app.get("/goals/", response_model=list[schemas.UserGoal])
 def get_goals(db: Session = Depends(get_db)):
+    return crud.get_goals(db=db)
+
+@app.get("/goals/{user_id}", response_model=list[schemas.UserGoal])
+def get_user_goals(user_id: int, db: Session = Depends(get_db)):
+    return crud.get_user_goals(db=db, user_id=user_id)
+
+@app.get("/goals/all/", response_model=list[schemas.UserGoal])
+def get_all_goals(db: Session = Depends(get_db)):
     return crud.get_goals(db=db)
