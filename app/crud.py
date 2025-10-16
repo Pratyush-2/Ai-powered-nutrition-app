@@ -189,6 +189,46 @@ def delete_daily_log(db: Session, log_id: int):
     db.commit()
     return {"ok": True}
 
+def update_daily_log(db: Session, log_id: int, log_update: schemas.DailyLogUpdate):
+    db_log = db.query(models.DailyLog).filter(models.DailyLog.id == log_id).first()
+    if not db_log:
+        raise ValueError(f"Log with ID {log_id} not found")
+
+    # Update fields if provided
+    if log_update.quantity is not None:
+        db_log.quantity = log_update.quantity
+    if log_update.food_id is not None:
+        # Check if food_id exists
+        food = db.query(models.Food).filter(models.Food.id == log_update.food_id).first()
+        if not food:
+            raise ValueError(f"Food with ID {log_update.food_id} not found")
+        db_log.food_id = log_update.food_id
+    if log_update.date is not None:
+        try:
+            log_date = date.fromisoformat(log_update.date)
+            db_log.date = log_date
+        except ValueError:
+            raise ValueError(f"Invalid date format: {log_update.date}. Expected yyyy-MM-dd")
+
+    db.commit()
+    db.refresh(db_log)
+    return db_log
+
+def update_goal(db: Session, goal_id: int, goal: schemas.UserGoalUpdate):
+    db_goal = db.query(models.UserGoal).filter(models.UserGoal.id == goal_id).first()
+    if not db_goal:
+        raise ValueError(f"Goal with ID {goal_id} not found")
+
+    # Update the goal fields
+    db_goal.calories_goal = goal.calories_goal
+    db_goal.protein_goal = goal.protein_goal
+    db_goal.carbs_goal = goal.carbs_goal
+    db_goal.fats_goal = goal.fats_goal
+
+    db.commit()
+    db.refresh(db_goal)
+    return db_goal
+
 # ---------- User Goals ----------
 def set_goal(db: Session, goal: schemas.UserGoalCreate):
     db_user = db.query(models.UserProfile).filter(models.UserProfile.id == goal.user_id).first()

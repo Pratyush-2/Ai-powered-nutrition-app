@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Optional
+from typing import Optional, List, Any, Dict
 from pydantic import BaseModel
 
 # ---------- Food ----------
@@ -28,6 +28,11 @@ class DailyLogBase(BaseModel):
 class DailyLogCreate(DailyLogBase):
     date: str  # Accept date as string from Flutter
 
+class DailyLogUpdate(BaseModel):
+    quantity: Optional[float] = None
+    food_id: Optional[int] = None
+    date: Optional[str] = None
+
 class DailyLog(DailyLogBase):
     id: int
     date: date  # Database returns date object
@@ -53,6 +58,9 @@ class UserGoalBase(BaseModel):
 
 class UserGoalCreate(UserGoalBase):
     user_id: int  # Add this field
+
+class UserGoalUpdate(UserGoalBase):
+    pass  # No additional fields needed for updates
 
 class UserGoal(UserGoalBase):
     id: int
@@ -93,6 +101,14 @@ class FactOut(BaseModel):
 class ChatRequest(BaseModel):
     query: str
     user_id: int
+
+class NutritionResult(BaseModel):
+    score: float  # 0-100 nutritional score
+    recommended: bool
+    confidence: float  # 0.6-0.95 confidence level
+    reasoning: str
+    nutritional_breakdown: Dict[str, float]  # Component scores
+    nutritional_details: Dict[str, float]  # Raw nutritional data
 
 class ClassifyRequest(BaseModel):
     food_name: str

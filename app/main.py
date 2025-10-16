@@ -17,6 +17,7 @@ from .user_profiles import router as profiles_router
 from app.ai.ai_routes import router as ai_router
 from app.services.food_search import search_food_by_name
 from typing import Optional
+from app.schemas import DailyLogUpdate, UserGoalUpdate
 # from app.routers import chat
 
 # Create DB tables
@@ -69,6 +70,10 @@ def read_logs(user_id: int, log_date: Optional[str] = None, db: Session = Depend
         return crud.get_logs_by_date_and_user(db=db, user_id=user_id, date=log_date)
     return crud.get_logs_by_user(db=db, user_id=user_id)
 
+@app.put("/logs/{log_id}", response_model=schemas.DailyLog)
+def update_log(log_id: int, log_update: schemas.DailyLogUpdate, db: Session = Depends(get_db)):
+    return crud.update_daily_log(db=db, log_id=log_id, log_update=log_update)
+
 @app.delete("/logs/{log_id}")
 def delete_log(log_id: int, db: Session = Depends(get_db)):
     return crud.delete_daily_log(db, log_id=log_id)
@@ -96,6 +101,10 @@ def get_goals(db: Session = Depends(get_db)):
 @app.get("/goals/{user_id}", response_model=list[schemas.UserGoal])
 def get_user_goals(user_id: int, db: Session = Depends(get_db)):
     return crud.get_user_goals(db=db, user_id=user_id)
+
+@app.put("/goals/{goal_id}", response_model=schemas.UserGoal)
+def update_goal(goal_id: int, goal: schemas.UserGoalUpdate, db: Session = Depends(get_db)):
+    return crud.update_goal(db=db, goal_id=goal_id, goal=goal)
 
 @app.get("/goals/all/", response_model=list[schemas.UserGoal])
 def get_all_goals(db: Session = Depends(get_db)):
