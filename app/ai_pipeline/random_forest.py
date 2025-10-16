@@ -99,9 +99,61 @@ def classify_food(food_features, user_features, user_goals: List[Any]):
     prediction = model.predict(scaled_features)
     probability = model.predict_proba(scaled_features)
 
+    # Calculate nutritional reasoning for LLM explanation
+    calories = food_features.get('calories', 0)
+    protein = food_features.get('protein', 0)
+    fat = food_features.get('fat', 0)
+    sugar = food_features.get('sugar', 0)
+    carbs = food_features.get('carbohydrates', 0)
+    
+    # Build reasoning string
+    reasoning_parts = []
+    
+    if protein > 15:
+        reasoning_parts.append("high in protein")
+    elif protein < 5:
+        reasoning_parts.append("low in protein")
+    
+    if sugar > 10:
+        reasoning_parts.append("high in sugar")
+    elif sugar < 2:
+        reasoning_parts.append("low in sugar")
+    
+    if fat > 20:
+        reasoning_parts.append("high in fat")
+    elif fat < 3:
+        reasoning_parts.append("low in fat")
+    
+    if calories > 400:
+        reasoning_parts.append("high in calories")
+    elif calories < 50:
+        reasoning_parts.append("low in calories")
+    
+    # Age considerations
+    age = user_features.get('age', 30)
+    if age > 50 and fat > 15:
+        reasoning_parts.append("higher fat content may be concerning for older adults")
+    elif age < 25 and protein < 8:
+        reasoning_parts.append("younger adults may benefit from more protein")
+    
+    # Activity considerations  
+    activity_level = user_features.get('activity_level', 2)
+    if activity_level >= 3 and calories < 200:
+        reasoning_parts.append("may not provide enough energy for active lifestyle")
+    
+    reasoning = ", ".join(reasoning_parts) if reasoning_parts else "balanced nutritional profile"
+
     return {
         "recommended": bool(prediction[0]),
-        "confidence": float(max(probability[0]))
+        "confidence": float(max(probability[0])),
+        "reasoning": reasoning,
+        "nutritional_details": {
+            "calories_per_100g": calories,
+            "protein_g": protein,
+            "fat_g": fat,
+            "sugar_g": sugar,
+            "carbs_g": carbs
+        }
     }
 
 if __name__ == '__main__':
