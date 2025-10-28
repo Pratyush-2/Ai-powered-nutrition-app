@@ -63,10 +63,11 @@ def classify_food_endpoint(request: ClassifyRequest, db: Session = Depends(get_d
         print(f"DEBUG: External search failed, trying built-in database")
         # Fallback to our built-in nutrition database
         food_key = request.food_name.lower().replace(' ', '_')
-        if food_key in food_recognizer.nutrition_database:
-            nutrition = food_recognizer.nutrition_database[food_key]
+        # Safely get nutrition_database or nutrition_db
+        nutrition_db = getattr(food_recognizer, 'nutrition_database', None) or getattr(food_recognizer, 'nutrition_db', None)
+        if nutrition_db and food_key in nutrition_db:
+            nutrition = nutrition_db[food_key]
             print(f"DEBUG: Found {request.food_name} in built-in database")
-            
             # Create mock product data from our database
             food_data = {
                 "products": [{

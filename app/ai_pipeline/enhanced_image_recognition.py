@@ -146,8 +146,31 @@ class IntegratedFoodRecognizer:
             "soup": {
                 "calories": 54, "protein": 2.1, "carbs": 8, "fat": 1.8, "sugar": 1.2, "fiber": 1.5,
                 "serving_size": "1 cup (240g)"
+            },
+            # Add desserts and cakes
+            "cake": {
+                "calories": 290, "protein": 4.5, "carbs": 40, "fat": 13, "sugar": 28, "fiber": 0.8,
+                "serving_size": "1 slice (100g)"
+            },
+            "cookies": {
+                "calories": 480, "protein": 6, "carbs": 64, "fat": 24, "sugar": 35, "fiber": 2,
+                "serving_size": "100g (about 3-4 cookies)"
+            },
+            "ice_cream": {
+                "calories": 207, "protein": 3.5, "carbs": 24, "fat": 11, "sugar": 21, "fiber": 0.7,
+                "serving_size": "100g (2 scoops)"
+            },
+            "chocolate": {
+                "calories": 545, "protein": 4.9, "carbs": 60, "fat": 31, "sugar": 48, "fiber": 3.4,
+                "serving_size": "100g bar"
+            },
+            "strawberry": {
+                "calories": 32, "protein": 0.7, "carbs": 7.7, "fat": 0.3, "sugar": 4.9, "fiber": 2,
+                "serving_size": "100g (about 8 medium)"
             }
         }
+        # Backward compatibility: alias for old code
+        self.nutrition_database = self.nutrition_db
         
         # Expanded food name mapping for better Google Vision matching
         self.food_mapping = {
@@ -192,7 +215,24 @@ class IntegratedFoodRecognizer:
             "vegetable curry": "curry",
             "tomato soup": "soup",
             "chicken soup": "soup",
-            "vegetable soup": "soup"
+            "vegetable soup": "soup",
+            # Add dessert and fruit mappings
+            "chocolate cake": "cake",
+            "birthday cake": "cake",
+            "cupcake": "cake",
+            "cheesecake": "cake",
+            "cookie": "cookies",
+            "chocolate chip": "cookies",
+            "gelato": "ice_cream",
+            "frozen dessert": "ice_cream",
+            "chocolate bar": "chocolate",
+            "dark chocolate": "chocolate",
+            "milk chocolate": "chocolate",
+            "wild strawberry": "strawberry",
+            "garden strawberry": "strawberry",
+            "berry": "strawberry",
+            "red berry": "strawberry",
+            "fresh berries": "strawberry"
         }
     
     def identify_food_from_image(self, image_file) -> Dict:
@@ -296,38 +336,71 @@ class IntegratedFoodRecognizer:
         
         print(f"🔍 Searching for food in labels: {labels}")
         
-        # Look for direct matches in nutrition database
+        # Track best match across all strategies
+        best_match = {"food": None, "confidence": 0}
+        
+        # Look for matches in all labels
         for label in labels:
             label_lower = label.lower()
             print(f"🔍 Checking label: '{label_lower}'")
             
-            # Direct match
+            # Direct match in nutrition database (highest confidence)
             if label_lower in self.nutrition_db:
                 print(f"✅ Direct match found: {label_lower}")
-                return {"food": label_lower, "confidence": 0.9}
+                return {"food": label_lower, "confidence": 0.9}  # Immediate return for exact matches
             
-            # Mapped match
+            # Check mapped foods (e.g., "chocolate cake" -> "cake")
             if label_lower in self.food_mapping:
                 mapped_food = self.food_mapping[label_lower]
                 print(f"🔍 Mapped '{label_lower}' to '{mapped_food}'")
                 if mapped_food in self.nutrition_db:
-                    print(f"✅ Mapped match found: {mapped_food}")
-                    return {"food": mapped_food, "confidence": 0.8}
+                    if 0.8 > best_match["confidence"]:
+                        best_match = {"food": mapped_food, "confidence": 0.8}
+                    continue  # Check other labels for better matches
             
-            # Partial match with better scoring
-            for db_food in self.nutrition_db.keys():
-                # Exact substring match
-                if db_food in label_lower or label_lower in db_food:
-                    confidence = 0.7 if len(db_food) > 3 else 0.5  # Shorter words get lower confidence
-                    print(f"✅ Partial match found: '{label_lower}' contains '{db_food}'")
-                    return {"food": db_food, "confidence": confidence}
-                
-                # Word-by-word matching for compound foods
-                label_words = label_lower.split()
+            # Compound word matching (e.g., "strawberry cake" -> ["strawberry", "cake"])
+            label_words = label_lower.split()
+            if len(label_words) > 1:
                 for word in label_words:
-                    if word in db_food and len(word) > 3:  # Only meaningful words
-                        print(f"✅ Word match found: '{word}' in '{db_food}'")
-                        return {"food": db_food, "confidence": 0.6}
+                    # Check if individual word matches food directly
+                    if word in self.nutrition_db:
+                        confidence = 0.75  # Good confidence for direct word match
+                        if confidence > best_match["confidence"]:
+                            best_match = {"food": word, "confidence": confidence}
+                            print(f"✅ Word-level match found: '{word}'")
+                    
+                    # Check mapped individual words
+                    if word in self.food_mapping:
+                        mapped_food = self.food_mapping[word]
+                        confidence = 0.7  # Slightly lower confidence for mapped word
+                        if confidence > best_match["confidence"]:
+                            best_match = {"food": mapped_food, "confidence": confidence}
+                            print(f"✅ Word-level mapping found: '{word}' -> '{mapped_food}'")
+            
+            # Partial/substring matching with better scoring
+            for db_food in self.nutrition_db.keys():
+                # Full substring match
+                if db_food in label_lower:
+                    confidence = 0.65 if len(db_food) > 3 else 0.4
+                    if confidence > best_match["confidence"]:
+                        best_match = {"food": db_food, "confidence": confidence}
+                        print(f"✅ Substring match found: '{db_food}' in '{label_lower}'")
+                
+                # Partial word matches (e.g., "strawberries" -> "strawberry")
+                elif any(word.startswith(db_food) or db_food.startswith(word) 
+                        for word in label_words if len(word) > 3):
+                    confidence = 0.6
+                    if confidence > best_match["confidence"]:
+                        best_match = {"food": db_food, "confidence": confidence}
+                        print(f"✅ Partial word match found with '{db_food}'")
+        
+        # Return best match if found, otherwise None
+        if best_match["food"]:
+            print(f"✅ Best match found: {best_match['food']} (confidence: {best_match['confidence']})")
+            return best_match
+        
+        print("❌ No food matches found in any labels")
+        return None
         
         print("❌ No food matches found in any labels")
         return None
