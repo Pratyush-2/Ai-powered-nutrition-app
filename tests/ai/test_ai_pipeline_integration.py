@@ -19,12 +19,12 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from app.ai.fetch_openfoodfacts import OpenFoodFactsFetcher
-from backend.ai.embeddings import NutritionEmbeddings
-from backend.ai.retriever import NutritionRetriever
-from backend.ai.train_rf import FoodRecommendationTrainer
-from backend.ai.rf_model import FoodRecommendationModel
-from backend.ai.llm_service import LLMService
-from backend.ai.verifier import NutritionVerifier
+from app.ai.embeddings import NutritionEmbeddings
+from app.ai.retriever import NutritionRetriever
+from app.ai.train_rf import FoodRecommendationTrainer
+from app.ai.rf_model import FoodRecommendationModel
+from app.ai.llm_service import LLMService
+from app.ai.verifier import NutritionVerifier
 
 class TestAIPipelineIntegration:
     """Integration tests for the complete AI pipeline."""
@@ -388,7 +388,7 @@ class TestAIPipelineIntegration:
         
         # Test with empty query
         with pytest.raises(Exception):
-            from backend.ai.security import input_validator
+            from app.ai.security import input_validator
             input_validator.validate_query("")
     
     def test_performance_metrics(self):
@@ -408,7 +408,7 @@ class TestAIPipelineIntegration:
     
     def test_monitoring_integration(self):
         """Test monitoring integration."""
-        from backend.ai.monitoring import AIMonitoring
+        from app.ai.monitoring import AIMonitoring
         
         # Ensure the database file is deleted before starting the test
         db_file_path = self.data_dir / "ai_metrics.db"
