@@ -14,9 +14,12 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Python lib directories (only at root level, venv/.venv already ignored separately)
+# Note: Flutter app lib directory is explicitly allowed below
 lib64/
 parts/
+# Explicitly allow Flutter app lib directory
+!nutrition_app/lib/
 sdist/
 var/
 wheels/
