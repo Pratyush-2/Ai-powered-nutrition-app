@@ -167,6 +167,30 @@ class IntegratedFoodRecognizer:
             "strawberry": {
                 "calories": 32, "protein": 0.7, "carbs": 7.7, "fat": 0.3, "sugar": 4.9, "fiber": 2,
                 "serving_size": "100g (about 8 medium)"
+            },
+            "chicken_breast": {
+                "calories": 165, "protein": 31, "carbs": 0, "fat": 3.6, "sugar": 0, "fiber": 0,
+                "serving_size": "100g cooked breast"
+            },
+            "chicken_thigh": {
+                "calories": 209, "protein": 26, "carbs": 0, "fat": 11, "sugar": 0, "fiber": 0,
+                "serving_size": "100g cooked thigh"
+            },
+            "ground_beef": {
+                "calories": 250, "protein": 26, "carbs": 0, "fat": 17, "sugar": 0, "fiber": 0,
+                "serving_size": "100g cooked"
+            },
+            "salmon": {
+                "calories": 208, "protein": 22, "carbs": 0, "fat": 13, "sugar": 0, "fiber": 0,
+                "serving_size": "100g cooked fillet"
+            },
+            "broccoli": {
+                "calories": 34, "protein": 2.8, "carbs": 7, "fat": 0.4, "sugar": 1.7, "fiber": 2.6,
+                "serving_size": "1 cup chopped (91g)"
+            },
+            "spinach": {
+                "calories": 23, "protein": 2.9, "carbs": 3.6, "fat": 0.4, "sugar": 0.4, "fiber": 2.2,
+                "serving_size": "1 cup (30g)"
             }
         }
         # Backward compatibility: alias for old code

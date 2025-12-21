@@ -34,79 +34,103 @@ def get_nutrition_facts(q: str, k: int = 3):
 
 @router.post("/classify/")
 def classify_food_endpoint(request: ClassifyRequest, db: Session = Depends(get_db)):
-    print(f"DEBUG: Starting classification for user {request.user_id}, food {request.food_name}")
-    
-    user_profile = get_user_profile(db, user_id=request.user_id)
-    print(f"DEBUG: User profile retrieved: {user_profile is not None}")
-    if not user_profile:
-        raise HTTPException(status_code=404, detail="User not found")
-    print(f"DEBUG: User profile data: age={user_profile.age}, weight={user_profile.weight_kg}")
+    try:
+        print(f"DEBUG: Starting classification for user {request.user_id}, food {request.food_name}")
+        
+        user_profile = get_user_profile(db, user_id=request.user_id)
+        print(f"DEBUG: User profile retrieved: {user_profile is not None}")
+        if not user_profile:
+            raise HTTPException(status_code=404, detail="User not found")
+        print(f"DEBUG: User profile data: age={user_profile.age}, weight={user_profile.weight_kg}")
 
-    user_goals = get_user_goals(db, user_id=request.user_id)
-    print(f"DEBUG: User goals count: {len(user_goals) if user_goals else 0}")
-    
-    if user_goals:
-        first_goal = user_goals[0]
-        print(f"DEBUG: First goal values: cal={first_goal.calories_goal}, prot={first_goal.protein_goal}")
-        required_goal_attrs = ['calories_goal', 'protein_goal', 'carbs_goal', 'fats_goal']
-        for attr in required_goal_attrs:
-            if getattr(first_goal, attr) is None:
-                print(f"DEBUG: Goal validation failed - {attr} is None")
-                raise HTTPException(status_code=400, detail=f"Incomplete user goal data: '{attr}' is missing.")
-        print(f"DEBUG: Goal validation passed")
-
-    # Try external API first, fallback to our database
-    food_data = search_food_by_name(request.food_name)
-    print(f"DEBUG: External food search result: {bool(food_data)}")
-    
-    if not food_data or not food_data.get("products"):
-        print(f"DEBUG: External search failed, trying built-in database")
-        # Fallback to our built-in nutrition database
-        food_key = request.food_name.lower().replace(' ', '_')
-        # Safely get nutrition_database or nutrition_db
-        nutrition_db = getattr(food_recognizer, 'nutrition_database', None) or getattr(food_recognizer, 'nutrition_db', None)
-        if nutrition_db and food_key in nutrition_db:
-            nutrition = nutrition_db[food_key]
-            print(f"DEBUG: Found {request.food_name} in built-in database")
-            # Create mock product data from our database
-            food_data = {
-                "products": [{
-                    "nutriments": {
-                        "energy-kcal_100g": nutrition["calories"],
-                        "proteins_100g": nutrition["protein"],
-                        "fat_100g": nutrition["fat"],
-                        "sugars_100g": nutrition["sugar"],
-                        "carbohydrates_100g": nutrition["carbs"],
-                        "fiber_100g": nutrition["fiber"]
-                    }
-                }]
-            }
+        user_goals = get_user_goals(db, user_id=request.user_id)
+        print(f"DEBUG: User goals count: {len(user_goals) if user_goals else 0}")
+        
+        # Don't enforce strict goal validation - let nutrition engine handle defaults
+        if user_goals:
+            first_goal = user_goals[0]
+            print(f"DEBUG: First goal values: cal={getattr(first_goal, 'calories_goal', 'None')}, prot={getattr(first_goal, 'protein_goal', 'None')}")
         else:
-            raise HTTPException(status_code=404, detail="Food not found")
-    
-    print(f"DEBUG: Food found: {len(food_data.get('products', []))} products")
+            print("DEBUG: No user goals found - using nutrition engine defaults")
 
-    product = food_data["products"][0]
-    nutriments = product.get("nutriments", {})
-    print(f"DEBUG: Food nutriments: {nutriments}")
+        # Safely get nutrition_database or nutrition_db (define it early)
+        nutrition_db = getattr(food_recognizer, 'nutrition_database', None) or getattr(food_recognizer, 'nutrition_db', None)
+        
+        # Try external API first, fallback to our database
+        food_data = search_food_by_name(request.food_name)
+        print(f"DEBUG: External food search result: {bool(food_data)}")
+        
+        if not food_data or not food_data.get("products"):
+            print(f"DEBUG: External search failed, trying built-in database with normalization")
+            
+            # Normalize food name for better matching
+            normalized_key = _normalize_food_name(request.food_name)
+            print(f"DEBUG: Normalized key: '{normalized_key}'")
+            
+            if nutrition_db and normalized_key in nutrition_db:
+                nutrition = nutrition_db[normalized_key]
+                print(f"DEBUG: Found {request.food_name} -> {normalized_key} in built-in database")
+                # Create mock product data from our database
+                food_data = {
+                    "products": [{
+                        "nutriments": {
+                            "energy-kcal_100g": nutrition["calories"],
+                            "proteins_100g": nutrition["protein"],
+                            "fat_100g": nutrition["fat"],
+                            "sugars_100g": nutrition["sugar"],
+                            "carbohydrates_100g": nutrition["carbs"],
+                            "fiber_100g": nutrition["fiber"]
+                        }
+                    }]
+                }
+            else:
+                print(f"DEBUG: Food {request.food_name} not found even with normalization")
+                raise HTTPException(status_code=404, detail="Food not found")
+        
+        print(f"DEBUG: Food found: {len(food_data.get('products', []))} products")
 
-    food_features = {
-        "calories": nutriments.get("energy-kcal_100g", 0),
-        "protein": nutriments.get("proteins_100g", 0),
-        "fat": nutriments.get("fat_100g", 0),
-        "sugar": nutriments.get("sugars_100g", 0),
-        "carbohydrates": nutriments.get("carbohydrates_100g", 0),
-    }
+        product = food_data["products"][0]
+        nutriments = product.get("nutriments", {})
+        print(f"DEBUG: Food nutriments: {nutriments}")
 
-    user_features = {
-        "age": user_profile.age,
-        "bmi": user_profile.weight_kg / ((user_profile.height_cm / 100) ** 2),
-        "activity_level": ACTIVITY_LEVEL_MAPPING.get(user_profile.activity_level.lower(), 1),
-    }
+        food_features = {
+            "calories": nutriments.get("energy-kcal_100g", 0),
+            "protein": nutriments.get("proteins_100g", 0),
+            "fat": nutriments.get("fat_100g", 0),
+            "sugar": nutriments.get("sugars_100g", 0),
+            "carbohydrates": nutriments.get("carbohydrates_100g", 0),
+        }
+        
+        print(f"DEBUG: Final food_features: {food_features}")
 
-    print(f"DEBUG: About to call classify_food()")
-    classification = classify_food(food_features, user_features, user_goals)
-    return classification
+        user_features = {
+            "age": user_profile.age,
+            "bmi": user_profile.weight_kg / ((user_profile.height_cm / 100) ** 2),
+            "activity_level": ACTIVITY_LEVEL_MAPPING.get(user_profile.activity_level.lower(), 1),
+        }
+
+        print(f"DEBUG: About to call classify_food()")
+        classification = classify_food(food_features, user_features, user_goals)
+        print(f"DEBUG: Classification result: {classification}")
+        
+        # Format response to match expected API (string format for Flutter)
+        response = {
+            "recommendation": "recommended" if classification["recommended"] else "not recommended",
+            "health_score": classification["score"],
+            "confidence": classification["confidence"],
+            "explanation": classification["reasoning"],
+            "nutritional_breakdown": classification["nutritional_breakdown"],
+            "nutritional_details": classification["nutritional_details"]
+        }
+        
+        print(f"DEBUG: Formatted response: {response}")
+        return response
+        
+    except Exception as e:
+        print(f"DEBUG: Error in classification: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
 
 @router.post("/generate-explanation/")
 def generate_explanation_endpoint(classification: Dict[str, Any], rag_output: str):
@@ -208,3 +232,28 @@ def test_google_vision_status():
         "vision_client_initialized": food_recognizer.vision_client is not None,
         "credentials_file_exists": os.path.exists("analog-reef-470415-q6-b8ddae1e11b3.json")
     }
+
+def _normalize_food_name(food_name: str) -> str:
+    """
+    Normalize food names for better database matching
+    """
+    name = food_name.lower().strip()
+    
+    # Remove common qualifiers and get base food
+    qualifiers_to_remove = [
+        'breast', 'thigh', 'wing', 'leg', 'drumstick', 'ground', 'minced',
+        'fillet', 'steak', 'chop', 'roast', 'cooked', 'raw', 'fresh',
+        'frozen', 'canned', 'dried', 'whole', 'skinless', 'boneless'
+    ]
+    
+    words = name.split()
+    # Keep only the main food words, remove qualifiers
+    filtered_words = [word for word in words if word not in qualifiers_to_remove]
+    
+    if filtered_words:
+        base_name = ' '.join(filtered_words)
+    else:
+        base_name = words[0] if words else name
+    
+    # Convert spaces to underscores for database key
+    return base_name.replace(' ', '_')
