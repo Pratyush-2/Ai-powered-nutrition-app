@@ -50,22 +50,22 @@ class _MealCardWithRecommendationState extends State<MealCardWithRecommendation>
       // Handle the current API response format
       if (result.containsKey('recommendation')) {
         final isRecommended = result['recommendation'] == 'recommended';
-        final confidence = result['confidence'] ?? 0.0;
+      final confidence = result['confidence'] ?? 0.0;
         final score = result['health_score'] ?? 0.0;
         
         print('✅ Recommendation result: recommended=$isRecommended, score=$score, confidence=$confidence');
-        
-        String recommendationText;
-        if (isRecommended) {
-          recommendationText = 'Recommended (${(confidence * 100).toInt()}% confidence)';
-        } else {
-          recommendationText = 'Not recommended (${(confidence * 100).toInt()}% confidence)';
-        }
-        
-        if (mounted) {
-          setState(() {
-            _recommendation = recommendationText;
-          });
+      
+      String recommendationText;
+      if (isRecommended) {
+        recommendationText = 'Recommended (${(confidence * 100).toInt()}% confidence)';
+      } else {
+        recommendationText = 'Not recommended (${(confidence * 100).toInt()}% confidence)';
+      }
+      
+      if (mounted) {
+        setState(() {
+          _recommendation = recommendationText;
+        });
         }
       } else {
         print('❌ Missing "recommendation" field in response');
