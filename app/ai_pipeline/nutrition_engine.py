@@ -129,8 +129,8 @@ class NutritionEngine:
         
         final_score = min(100, max(0, weighted_score + age_adjustment + bmi_adjustment))
         
-        # Generate recommendation
-        is_recommended = final_score >= 60  # 60+ is recommended
+        # Generate recommendation - lower threshold for better UX
+        is_recommended = final_score >= 45  # Changed from 60 to 45
         
         # Build detailed reasoning
         reasoning = self._build_reasoning(
