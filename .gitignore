@@ -216,3 +216,27 @@ coverage/
 .cache/
 .pytest_cache/
 .coverage/
+
+# Test and debug files
+test_*.py
+debug_*.py
+check_*.py
+T-T.py
+server.log
+logs.txt
+
+# Model files (can be regenerated)
+*.joblib
+*.pkl
+*.h5
+*.pth
+*.pt
+
+# Index files (can be regenerated)
+indexes/*.index
+indexes/*.npy
+indexes/*.jsonl
+
+# OneDrive sync files
+~$*
+*.tmp
