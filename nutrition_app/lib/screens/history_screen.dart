@@ -107,6 +107,61 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  Future<void> _pasteDailyFoods() async {
+    try {
+      final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = clipboardData?.text;
+      
+      if (text == null || text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Clipboard is empty'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Show confirmation dialog
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Paste Foods'),
+          content: Text(
+            'Paste foods to ${DateFormat('MMMM d, yyyy').format(_selectedDate)}?\n\n'
+            'Note: This is a simplified paste. For best results, manually log foods.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Paste'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Paste feature coming soon! For now, please log foods manually.'),
+          backgroundColor: Colors.blue,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error pasting: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -142,51 +197,70 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ],
                   ),
                 ),
-                FutureBuilder<List<DailyLogModel>>(
-                  future: _dailyLogsFuture,
-                  builder: (context, snapshot) {
-                    final hasLogs = snapshot.hasData && snapshot.data!.isNotEmpty;
-                    return GestureDetector(
-                      onTap: hasLogs ? () => _copyDailyFoods(snapshot.data!) : null,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: hasLogs 
-                              ? theme.colorScheme.primary.withOpacity(0.1)
-                              : Colors.grey.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: hasLogs 
-                                ? theme.colorScheme.primary
-                                : Colors.grey,
-                            width: 1,
+                // Ultra-compact icon buttons
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Paste button (icon only)
+                    Tooltip(
+                      message: 'Paste foods',
+                      child: GestureDetector(
+                        onTap: _pasteDailyFoods,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.secondary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: theme.colorScheme.secondary,
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.paste,
+                            size: 16,
+                            color: theme.colorScheme.secondary,
                           ),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.copy,
-                              size: 16,
-                              color: hasLogs 
-                                  ? theme.colorScheme.primary
-                                  : Colors.grey,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Copy',
-                              style: theme.textTheme.titleSmall?.copyWith(
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    // Copy button (icon only)
+                    FutureBuilder<List<DailyLogModel>>(
+                      future: _dailyLogsFuture,
+                      builder: (context, snapshot) {
+                        final hasLogs = snapshot.hasData && snapshot.data!.isNotEmpty;
+                        return Tooltip(
+                          message: hasLogs ? 'Copy foods' : 'No foods to copy',
+                          child: GestureDetector(
+                            onTap: hasLogs ? () => _copyDailyFoods(snapshot.data!) : null,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: hasLogs 
+                                    ? theme.colorScheme.primary.withOpacity(0.1)
+                                    : Colors.grey.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: hasLogs 
+                                      ? theme.colorScheme.primary
+                                      : Colors.grey,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.copy,
+                                size: 16,
                                 color: hasLogs 
                                     ? theme.colorScheme.primary
                                     : Colors.grey,
-                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
