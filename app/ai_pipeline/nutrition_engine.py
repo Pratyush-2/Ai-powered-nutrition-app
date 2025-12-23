@@ -77,17 +77,26 @@ class NutritionEngine:
             Dict with score, recommendation, and reasoning
         """
         
-        # Extract nutritional values
-        calories = food_features.get('calories', 0)
-        protein = food_features.get('protein', 0)
-        fat = food_features.get('fat', 0)
-        sugar = food_features.get('sugar', 0)
-        carbs = food_features.get('carbohydrates', 0)
+        # Extract nutritional values with safe type conversion
+        def safe_float(value, default=0.0):
+            """Safely convert value to float"""
+            if value is None:
+                return default
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                return default
         
-        # Extract user data
-        age = user_features.get('age', 30)
-        activity_level = user_features.get('activity_level', 2)
-        bmi = user_features.get('bmi', 25.0)
+        calories = safe_float(food_features.get('calories'))
+        protein = safe_float(food_features.get('protein'))
+        fat = safe_float(food_features.get('fat'))
+        sugar = safe_float(food_features.get('sugar'))
+        carbs = safe_float(food_features.get('carbohydrates'))
+        
+        # Extract user data with safe conversion
+        age = int(user_features.get('age', 30))
+        activity_level = int(user_features.get('activity_level', 2))
+        bmi = safe_float(user_features.get('bmi'), 25.0)
         
         # Determine primary goal (default to general_health)
         primary_goal = "general_health"
