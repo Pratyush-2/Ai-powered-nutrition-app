@@ -11,7 +11,8 @@ import 'package:nutrition_app/screens/log_food_screen.dart';
 import 'package:nutrition_app/screens/chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final bool isGuest;
+  const HomeScreen({super.key, this.isGuest = false});
 
   @override
   State<HomeScreen> createState() => HomeScreenState();

@@ -75,6 +75,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 },
                 child: const Text('Don\'t have an account? Register'),
               ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () {
+                  // Navigate to app as guest
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (context) => const MainTabs(isGuest: true)),
+                  );
+                },
+                icon: const Icon(Icons.person_outline),
+                label: const Text('Continue as Guest'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Guest mode: Limited features, no data sync',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
