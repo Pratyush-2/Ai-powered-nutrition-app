@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:nutrition_app/screens/profile_check_screen.dart';
+import 'package:nutrition_app/screens/login_screen.dart';
+import 'package:nutrition_app/screens/main_tabs.dart';
 import 'package:nutrition_app/services/api_service.dart';
+import 'package:nutrition_app/services/auth_service.dart';
 
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
 final ApiService apiService = ApiService('http://10.0.2.2:8000');
+final AuthService authService = AuthService();
 
-void main() {
-  runApp(const NutritionApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final token = await authService.getToken();
+  runApp(NutritionApp(isLoggedIn: token != null));
 }
 
 class NutritionApp extends StatelessWidget {
-  const NutritionApp({super.key});
+  final bool isLoggedIn;
+  const NutritionApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +48,7 @@ class NutritionApp extends StatelessWidget {
             ),
           ),
           themeMode: mode,
-          home: const ProfileCheckScreen(),
+          home: isLoggedIn ? const MainTabs() : const LoginScreen(),
         );
       },
     );

@@ -1,5 +1,6 @@
 class Goal {
   final int id;
+  final int userId;
   final double caloriesGoal;
   final double proteinGoal;
   final double carbsGoal;
@@ -7,6 +8,7 @@ class Goal {
 
   Goal({
     required this.id,
+    required this.userId,
     required this.caloriesGoal,
     required this.proteinGoal,
     required this.carbsGoal,
@@ -16,6 +18,7 @@ class Goal {
   factory Goal.fromJson(Map<String, dynamic> json) {
     return Goal(
       id: json['id'] as int,
+      userId: json['user_id'] as int,
       caloriesGoal: (json['calories_goal'] as num).toDouble(),
       proteinGoal: (json['protein_goal'] as num).toDouble(),
       carbsGoal: (json['carbs_goal'] as num).toDouble(),
@@ -26,6 +29,7 @@ class Goal {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'user_id': userId,
       'calories_goal': caloriesGoal,
       'protein_goal': proteinGoal,
       'carbs_goal': carbsGoal,
@@ -35,6 +39,7 @@ class Goal {
 
   Goal copyWith({
     int? id,
+    int? userId,
     double? caloriesGoal,
     double? proteinGoal,
     double? carbsGoal,
@@ -42,6 +47,7 @@ class Goal {
   }) {
     return Goal(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       caloriesGoal: caloriesGoal ?? this.caloriesGoal,
       proteinGoal: proteinGoal ?? this.proteinGoal,
       carbsGoal: carbsGoal ?? this.carbsGoal,

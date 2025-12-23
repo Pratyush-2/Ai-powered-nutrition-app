@@ -6,6 +6,8 @@ from .database import Base
 class UserProfile(Base):
     __tablename__ = "user_profiles"
     id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
     name = Column(String)
     age = Column(Integer)
     weight_kg = Column(Float)

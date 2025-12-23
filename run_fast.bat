@@ -4,7 +4,7 @@ echo Windows will open showing the service logs.
 echo.
 
 REM Start FastAPI backend - make window visible and bring to front
-start "FastAPI Backend - API Logs" /MAX cmd /k "cd /d %~dp0 && title FastAPI Backend && echo Activating virtual environment... && .venv\Scripts\activate && echo. && echo Starting FastAPI server on http://127.0.0.1:8000 && echo API logs will appear below: && echo ================================ && uvicorn app.main:app --reload"
+start "FastAPI Backend - API Logs" /MAX cmd /k "cd /d %~dp0 && title FastAPI Backend && echo Activating virtual environment... && .venv\Scripts\activate && echo. && set PYTHONPATH=%~dp0.venv\Lib\site-packages;%PYTHONPATH% && echo. && echo Starting FastAPI server on http://127.0.0.1:8000 && echo API logs will appear below: && echo ================================ && %~dp0.venv\Scripts\uvicorn.exe app.main:app --reload"
 
 REM Small delay before starting Flutter
 timeout /t 2 /nobreak > nul
@@ -15,7 +15,7 @@ start "Flutter Frontend" /MAX cmd /k "cd /d %~dp0\nutrition_app && title Flutter
 echo.
 echo Both services started!
 echo Look for the new command windows that just opened.
-echo - FastAPI window: Shows all API request/response logs
+echo - FastAPI window: Shows all API request/response logs, Python environment info.
 echo - Flutter window: Shows app startup and hot reload logs
 echo.
 echo Press any key to close this launcher window...

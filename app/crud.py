@@ -1,15 +1,19 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
-# Remove: from fastapi import HTTPException
-from . import models, schemas
+from . import models, schemas, auth
 from .utils import calculate_targets
 from datetime import date
 from typing import Optional
-from pydantic import BaseModel
 
 # ---------- User Profiles ----------
+def get_user_by_email(db: Session, email: str):
+    return db.query(models.UserProfile).filter(models.UserProfile.email == email).first()
+
 def create_user_profile(db: Session, profile: schemas.UserProfileCreate):
+    hashed_password = auth.get_password_hash(profile.password)
     db_profile = models.UserProfile(
+        email=profile.email,
+        hashed_password=hashed_password,
         name=profile.name,
         age=profile.age,
         weight_kg=profile.weight_kg,
@@ -39,10 +43,6 @@ def get_user_profile(db: Session, user_id: int):
         raise ValueError(f"User profile {user_id} not found")
     return profile
 
-def get_user_profile_by_id(db: Session, user_id: int):
-    return db.query(models.UserProfile).filter(models.UserProfile.id == user_id).first()
-
-
 def get_user_profiles(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.UserProfile).offset(skip).limit(limit).all()
 
@@ -61,7 +61,6 @@ def update_user_profile(db: Session, user_id: int, profile: schemas.UserProfileC
 
 # ---------- Foods ----------
 def create_food(db: Session, food: schemas.FoodCreate):
-    # Explicitly exclude id field to ensure auto-generation
     food_data = food.dict()
     if 'id' in food_data:
         del food_data['id']
@@ -71,7 +70,6 @@ def create_food(db: Session, food: schemas.FoodCreate):
     db.commit()
     db.refresh(db_food)
     
-    # Ensure we got a valid ID
     if db_food.id is None or db_food.id == 0:
         db.rollback()
         raise ValueError("Failed to create food - invalid ID generated")
@@ -88,32 +86,23 @@ def get_food_by_name(db: Session, food_name: str):
     return db.query(models.Food).filter(models.Food.name == food_name).first()
 
 # ---------- Daily Logs ----------
-def create_daily_log(db: Session, log: schemas.DailyLogCreate):
-    # Check if food_id exists
+def create_daily_log(db: Session, log: schemas.DailyLogCreate, user_id: int):
     food = db.query(models.Food).filter(models.Food.id == log.food_id).first()
     if not food:
         raise ValueError(f"Food with ID {log.food_id} not found")
 
-    # Check if user_id exists
-    user = db.query(models.UserProfile).filter(models.UserProfile.id == log.user_id).first()
-    if not user:
-        raise ValueError(f"User with ID {log.user_id} not found")
-
-    # Parse the date string to date object
     try:
         log_date = date.fromisoformat(log.date)
     except ValueError:
         raise ValueError(f"Invalid date format: {log.date}. Expected yyyy-MM-dd")
 
-    # Check for duplicate log (same user, food, date)
     existing_log = db.query(models.DailyLog).filter(
-        models.DailyLog.user_id == log.user_id,
+        models.DailyLog.user_id == user_id,
         models.DailyLog.food_id == log.food_id,
         models.DailyLog.date == log_date
     ).first()
     
     if existing_log:
-        # Update quantity instead of creating duplicate
         existing_log.quantity += log.quantity
         db.commit()
         db.refresh(existing_log)
@@ -122,7 +111,7 @@ def create_daily_log(db: Session, log: schemas.DailyLogCreate):
     db_log = models.DailyLog(
         date=log_date,
         quantity=log.quantity,
-        user_id=log.user_id,
+        user_id=user_id,
         food_id=log.food_id
     )
     db.add(db_log)
@@ -230,11 +219,11 @@ def update_goal(db: Session, goal_id: int, goal: schemas.UserGoalUpdate):
     return db_goal
 
 # ---------- User Goals ----------
-def set_goal(db: Session, goal: schemas.UserGoalCreate):
-    db_user = db.query(models.UserProfile).filter(models.UserProfile.id == goal.user_id).first()
+def set_goal(db: Session, goal: schemas.UserGoalCreate, user_id: int):
+    db_user = db.query(models.UserProfile).filter(models.UserProfile.id == user_id).first()
     if not db_user:
-        raise ValueError(f"User {goal.user_id} not found")
-    db_goal = models.UserGoal(**goal.dict())
+        raise ValueError(f"User {user_id} not found")
+    db_goal = models.UserGoal(**goal.dict(), user_id=user_id)
     db.add(db_goal)
     db.commit()
     db.refresh(db_goal)

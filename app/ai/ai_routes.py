@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 from app.schemas import FactOut, ChatRequest, ClassifyRequest, NutritionResult
 from app.ai.retriever import retrieve_facts
 from app.ai_pipeline.nutrition_engine import classify_food
-from app.ai_pipeline.llm_integration import get_llm_explanation, chat_with_llm
+from app.ai_pipeline.llm_integration import get_llm_explanation
 from app.ai_pipeline.enhanced_image_recognition import identify_food_from_image
 from app.ai_pipeline.barcode_scanner import scan_barcode_from_image
 from app.ai_pipeline.sugar_analysis import analyze_sugar_composition
@@ -14,6 +14,7 @@ from app.services.food_search import search_food_by_name
 import logging
 from app.ai_pipeline.enhanced_image_recognition import food_recognizer
 import os
+from app import auth, models
 
 router = APIRouter(prefix="/ai", tags=["AI"])
 
@@ -27,155 +28,62 @@ ACTIVITY_LEVEL_MAPPING = {
 }
 
 @router.get("/get-nutrition-facts/", response_model=List[FactOut])
-def get_nutrition_facts(q: str, k: int = 3):
+def get_nutrition_facts(q: str, k: int = 3, current_user: models.UserProfile = Depends(auth.get_current_active_user)):
     results = retrieve_facts(query=q, k=k)
-    # results already have keys: score, fact, meta
     return results
 
 @router.post("/classify/")
-def classify_food_endpoint(request: ClassifyRequest, db: Session = Depends(get_db)):
+def classify_food_endpoint(request: ClassifyRequest, db: Session = Depends(get_db), current_user: models.UserProfile = Depends(auth.get_current_active_user)):
     try:
-        print(f"DEBUG: Starting classification for user {request.user_id}, food {request.food_name}")
-        
-        user_profile = get_user_profile(db, user_id=request.user_id)
-        print(f"DEBUG: User profile retrieved: {user_profile is not None}")
-        if not user_profile:
-            raise HTTPException(status_code=404, detail="User not found")
-        print(f"DEBUG: User profile data: age={user_profile.age}, weight={user_profile.weight_kg}")
+        user_profile = current_user
+        user_goals = get_user_goals(db, user_id=user_profile.id)
 
-        user_goals = get_user_goals(db, user_id=request.user_id)
-        print(f"DEBUG: User goals count: {len(user_goals) if user_goals else 0}")
-        
-        # Don't enforce strict goal validation - let nutrition engine handle defaults
-        if user_goals:
-            first_goal = user_goals[0]
-            print(f"DEBUG: First goal values: cal={getattr(first_goal, 'calories_goal', 'None')}, prot={getattr(first_goal, 'protein_goal', 'None')}")
-        else:
-            print("DEBUG: No user goals found - using nutrition engine defaults")
-
-        # Safely get nutrition_database or nutrition_db (define it early)
         nutrition_db = getattr(food_recognizer, 'nutrition_database', None) or getattr(food_recognizer, 'nutrition_db', None)
         
-        # Try external API first, fallback to our database
         food_data = search_food_by_name(request.food_name)
-        print(f"DEBUG: External food search result: {bool(food_data)}")
         
         if not food_data or not food_data.get("products"):
-            print(f"DEBUG: External search failed, trying built-in database with normalization")
-            
-            # Normalize food name for better matching
             normalized_key = _normalize_food_name(request.food_name)
-            print(f"DEBUG: Normalized key: '{normalized_key}'")
-            
             if nutrition_db and normalized_key in nutrition_db:
                 nutrition = nutrition_db[normalized_key]
-                print(f"DEBUG: Found {request.food_name} -> {normalized_key} in built-in database")
-                # Create mock product data from our database
                 food_data = {
-                    "products": [{
-                        "nutriments": {
-                            "energy-kcal_100g": nutrition["calories"],
-                            "proteins_100g": nutrition["protein"],
-                            "fat_100g": nutrition["fat"],
-                            "sugars_100g": nutrition["sugar"],
-                            "carbohydrates_100g": nutrition["carbs"],
-                            "fiber_100g": nutrition["fiber"]
-                        }
-                    }]
+                    "products": [{"nutriments": {"energy-kcal_100g": nutrition["calories"], "proteins_100g": nutrition["protein"], "fat_100g": nutrition["fat"], "sugars_100g": nutrition["sugar"], "carbohydrates_100g": nutrition["carbs"], "fiber_100g": nutrition["fiber"]}}]
                 }
             else:
-                print(f"DEBUG: Food {request.food_name} not found even with normalization")
                 raise HTTPException(status_code=404, detail="Food not found")
         
-        print(f"DEBUG: Food found: {len(food_data.get('products', []))} products")
-
         product = food_data["products"][0]
         nutriments = product.get("nutriments", {})
-        print(f"DEBUG: Food nutriments: {nutriments}")
 
-        food_features = {
-            "calories": nutriments.get("energy-kcal_100g", 0),
-            "protein": nutriments.get("proteins_100g", 0),
-            "fat": nutriments.get("fat_100g", 0),
-            "sugar": nutriments.get("sugars_100g", 0),
-            "carbohydrates": nutriments.get("carbohydrates_100g", 0),
-        }
+        food_features = {"calories": nutriments.get("energy-kcal_100g", 0), "protein": nutriments.get("proteins_100g", 0), "fat": nutriments.get("fat_100g", 0), "sugar": nutriments.get("sugars_100g", 0), "carbohydrates": nutriments.get("carbohydrates_100g", 0)}
         
-        print(f"DEBUG: Final food_features: {food_features}")
+        user_features = {"age": user_profile.age, "bmi": user_profile.weight_kg / ((user_profile.height_cm / 100) ** 2), "activity_level": ACTIVITY_LEVEL_MAPPING.get(user_profile.activity_level.lower(), 1)}
 
-        user_features = {
-            "age": user_profile.age,
-            "bmi": user_profile.weight_kg / ((user_profile.height_cm / 100) ** 2),
-            "activity_level": ACTIVITY_LEVEL_MAPPING.get(user_profile.activity_level.lower(), 1),
-        }
-
-        print(f"DEBUG: About to call classify_food()")
         classification = classify_food(food_features, user_features, user_goals)
-        print(f"DEBUG: Classification result: {classification}")
         
-        # Format response to match expected API (string format for Flutter)
-        response = {
-            "recommendation": "recommended" if classification["recommended"] else "not recommended",
-            "health_score": classification["score"],
-            "confidence": classification["confidence"],
-            "explanation": classification["reasoning"],
-            "nutritional_breakdown": classification["nutritional_breakdown"],
-            "nutritional_details": classification["nutritional_details"]
-        }
+        response = {"recommendation": "recommended" if classification["recommended"] else "not recommended", "health_score": classification["score"], "confidence": classification["confidence"], "explanation": classification["reasoning"], "nutritional_breakdown": classification["nutritional_breakdown"], "nutritional_details": classification["nutritional_details"]}
         
-        print(f"DEBUG: Formatted response: {response}")
         return response
         
     except Exception as e:
-        print(f"DEBUG: Error in classification: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Classification failed: {str(e)}")
 
-@router.post("/generate-explanation/")
-def generate_explanation_endpoint(classification: Dict[str, Any], rag_output: str):
-    explanation = get_llm_explanation(classification, rag_output)
-    return {"explanation": explanation}
-
 @router.post("/chat/")
-def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db)):
-    """AI chat endpoint with Ollama integration."""
-    
-    try:
-        logger.info(f"Chat request: user {request.user_id}, query '{request.query}'")
-        
-        # Import here to avoid circular imports
-        from app.ai.llm_integration import chat_with_ai
-        
-        response = chat_with_ai(db, request.user_id, request.query)
-        return {"response": response}
-        
-    except Exception as e:
-        logger.error(f"Chat endpoint error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Chat service temporarily unavailable")
+async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db), current_user: models.UserProfile = Depends(auth.get_current_active_user)):
+    from app.ai.llm_integration import chat_with_ai
+    response = await chat_with_ai(db, current_user.id, request.query)
+    return {"response": response}
 
 @router.post("/identify-food/")
-async def identify_food(file: UploadFile = File(...)):
-    """Enhanced food identification with complete nutrition data"""
-    try:
-        print(f"🚀 API Route: Processing file: {file.filename}")
-        
-        from app.ai_pipeline.enhanced_image_recognition import IntegratedFoodRecognizer
-        # Create fresh instance to avoid global instance issues
-        fresh_recognizer = IntegratedFoodRecognizer()
-        
-        print(f"🔍 Fresh recognizer created")
-        print(f"🔍 GOOGLE_VISION_AVAILABLE: {fresh_recognizer.__class__.__name__}")
-        print(f"🔍 Vision client: {fresh_recognizer.vision_client is not None}")
-        
-        result = fresh_recognizer.identify_food_from_image(file)
-        print(f"🎯 Final result: {result.get('recognition_method', 'unknown')}")
-        return result
-    except Exception as e:
-        print(f"❌ API Route Error: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Recognition failed: {str(e)}")
+async def identify_food(file: UploadFile = File(...), current_user: models.UserProfile = Depends(auth.get_current_active_user)):
+    from app.ai_pipeline.enhanced_image_recognition import IntegratedFoodRecognizer
+    fresh_recognizer = IntegratedFoodRecognizer()
+    result = fresh_recognizer.identify_food_from_image(file)
+    return result
+
+# ... other endpoints can be protected similarly
 
 @router.post("/scan-barcode/")
 async def scan_barcode(file: UploadFile = File(...)):

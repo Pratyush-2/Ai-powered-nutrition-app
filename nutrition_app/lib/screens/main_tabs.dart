@@ -7,8 +7,7 @@ import 'profile_screen.dart';
 import 'goals_screen.dart';
 
 class MainTabs extends StatefulWidget {
-  final int userId;
-  const MainTabs({super.key, required this.userId});
+  const MainTabs({super.key});
 
   @override
   State<MainTabs> createState() => _MainTabsState();
@@ -24,11 +23,11 @@ class _MainTabsState extends State<MainTabs> {
   void initState() {
     super.initState();
     _pages = [
-      HomeScreen(key: _homeScreenKey, userId: widget.userId),
-      HistoryScreen(userId: widget.userId),  // Add userId
-      ChatScreen(userId: widget.userId),
-      GoalsScreen(onGoalsUpdated: _refreshHomeScreen),  // Pass callback
-      ProfileScreen(userId: widget.userId),
+      HomeScreen(key: _homeScreenKey),
+      const HistoryScreen(),
+      const ChatScreen(),
+      GoalsScreen(onGoalsUpdated: _refreshHomeScreen),
+      const ProfileScreen(),
     ];
   }
 
@@ -39,7 +38,7 @@ class _MainTabsState extends State<MainTabs> {
   void _navigateAndRefresh() {
     Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (context) => LogFoodScreen(userId: widget.userId),
+        builder: (context) => const LogFoodScreen(),
       ),
     ).then((result) {
       if (_index == 0) {
