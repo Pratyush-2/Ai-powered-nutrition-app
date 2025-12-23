@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:nutrition_app/main.dart';
 import 'package:nutrition_app/models/log.dart';
+import 'package:nutrition_app/models/food.dart';
 import 'package:nutrition_app/widgets/meal_card_with_recommendation.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -122,14 +123,27 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return;
       }
 
+      // Parse the copied text
+      final parsedFoods = _parseClipboardText(text);
+      
+      if (parsedFoods.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No valid food data found in clipboard'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
       // Show confirmation dialog
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Paste Foods'),
           content: Text(
-            'Paste foods to ${DateFormat('MMMM d, yyyy').format(_selectedDate)}?\n\n'
-            'Note: This is a simplified paste. For best results, manually log foods.',
+            'Found ${parsedFoods.length} food${parsedFoods.length > 1 ? 's' : ''} to paste.\n\n'
+            'Paste to ${DateFormat('MMMM d, yyyy').format(_selectedDate)}?',
           ),
           actions: [
             TextButton(
@@ -146,10 +160,57 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
       if (confirmed != true) return;
 
+      // Log each parsed food
+      int successCount = 0;
+      for (final foodData in parsedFoods) {
+        try {
+          // Search for the food by name to get its ID
+          final searchResults = await apiService.searchFood(foodData['name']);
+          
+          if (searchResults.isEmpty) {
+            print('Food not found: ${foodData['name']}');
+            continue;
+          }
+          
+          // Use the first search result
+          Food food = searchResults[0];
+          
+          // If the food doesn't have an ID (from OpenFoodFacts), create it first
+          if (food.id == null) {
+            print('Food has no ID, creating it first: ${food.name}');
+            food = await apiService.createFood(food);
+          }
+          
+          // Create the log with the food_id and original quantity
+          final logData = {
+            'food_id': food.id,
+            'quantity': foodData['quantity'],
+            'date': DateFormat('yyyy-MM-dd').format(_selectedDate),
+          };
+          
+          await apiService.addLog(logData);
+          successCount++;
+        } catch (e) {
+          // Log error silently, continue with other foods
+          print('Error logging food: $e');
+        }
+      }
+
+      // Refresh the logs
+      _fetchLogs();
+
+      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Paste feature coming soon! For now, please log foods manually.'),
-          backgroundColor: Colors.blue,
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Text('Pasted $successCount food${successCount > 1 ? 's' : ''} successfully!'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
         ),
       );
     } catch (e) {
@@ -160,6 +221,73 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
       );
     }
+  }
+
+  List<Map<String, dynamic>> _parseClipboardText(String text) {
+    final List<Map<String, dynamic>> foods = [];
+    final lines = text.split('\n');
+    
+    Map<String, dynamic>? currentFood;
+    
+    print('=== PARSING CLIPBOARD ===');
+    print(text);
+    print('=== END CLIPBOARD ===');
+    
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      
+      print('Processing line: "$trimmed"');
+      
+      // Stop parsing at DAILY TOTALS section
+      if (trimmed.contains('━━━') || trimmed.contains('DAILY TOTALS') || trimmed.contains('📊')) {
+        print('Reached totals section, stopping parse');
+        break;
+      }
+      
+      // Check if it's a food name line (starts with number and dot)
+      final foodNameMatch = RegExp(r'^\d+\.\s+(.+)$').firstMatch(trimmed);
+      if (foodNameMatch != null) {
+        // Save previous food if exists
+        if (currentFood != null && currentFood['name'] != null) {
+          print('Saving food: ${currentFood['name']} - ${currentFood['quantity']}g');
+          foods.add(currentFood);
+        }
+        // Start new food
+        currentFood = {
+          'name': foodNameMatch.group(1),
+          'quantity': 100.0,
+        };
+        print('Started new food: ${currentFood['name']}');
+        continue;
+      }
+      
+      // Parse nutrition lines - we only need quantity now
+      if (currentFood != null) {
+        // Quantity line: 📏 Quantity: 150g
+        if (trimmed.contains('📏')) {
+          final parts = trimmed.split('📏');
+          if (parts.length > 1) {
+            final quantityMatch = RegExp(r'(\d+(?:\.\d+)?)').firstMatch(parts[1]);
+            if (quantityMatch != null) {
+              final value = double.tryParse(quantityMatch.group(1)!) ?? 100.0;
+              currentFood['quantity'] = value;
+              print('  Parsed quantity: $value');
+            }
+          }
+        }
+      }
+    }
+    
+    // Add last food
+    if (currentFood != null && currentFood['name'] != null) {
+      print('Saving last food: ${currentFood['name']} - ${currentFood['quantity']}g');
+      foods.add(currentFood);
+    }
+    
+    print('=== PARSED ${foods.length} FOODS ===');
+    
+    return foods;
   }
 
   @override
