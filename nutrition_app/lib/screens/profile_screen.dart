@@ -7,7 +7,8 @@ import 'package:nutrition_app/screens/set_goals_screen.dart';
 import 'package:nutrition_app/main.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final bool isGuest;
+  const ProfileScreen({super.key, this.isGuest = false});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -19,7 +20,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _dataFuture = _getData();
+    if (!widget.isGuest) {
+      _dataFuture = _getData();
+    }
   }
 
   Future<Map<String, dynamic>> _getData() async {
@@ -53,7 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Text(widget.isGuest ? 'Guest Profile' : 'Profile'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -61,7 +64,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<Map<String, dynamic>>(
+      body: widget.isGuest ? _buildGuestView() : FutureBuilder<Map<String, dynamic>>(
         future: _dataFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -158,6 +161,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
           return const Center(child: Text('No profile data available.'));
         },
+      ),
+    );
+  }
+
+  Widget _buildGuestView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.person_outline,
+              size: 100,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Guest Mode',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'You\'re using the app as a guest',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Limited features available:\n• No data sync\n• No profile customization\n• No goal tracking',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[500],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (Route<dynamic> route) => false,
+                );
+              },
+              icon: const Icon(Icons.login),
+              label: const Text('Login or Register'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Create an account to unlock all features!',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,29 +1,27 @@
 
 import requests
 import time
-from functools import lru_cache
 
-# Simple in-memory cache
+# Simple in-memory cache with consistent behavior
 _cache = {}
-_CACHE_DURATION = 300  # 5 minutes
+_CACHE_DURATION = 86400  # 24 hours for aggressive caching
 
-@lru_cache(maxsize=100)
 def search_food_by_name(food_name: str):
     """
-    Searches for food with aggressive caching for speed.
-    Strategy: Return cached data instantly, refresh in background
+    Searches for food with aggressive caching for speed and consistency.
+    Strategy: Consistent results, cached for 24 hours
     """
     
     cache_key = food_name.lower().strip()
     current_time = time.time()
     
-    # SPEED OPTIMIZATION: Check cache with longer TTL (24 hours instead of 5 minutes)
+    # CONSISTENCY FIX: Check cache with 24-hour TTL
     if cache_key in _cache:
         cached_data, timestamp = _cache[cache_key]
         age = current_time - timestamp
         
-        # Return cached data immediately if less than 24 hours old
-        if age < 86400:  # 24 hours
+        # Return cached data if less than 24 hours old
+        if age < _CACHE_DURATION:
             print(f"✅ Returning cached results for '{food_name}' (age: {int(age/60)} minutes)")
             return cached_data
     
