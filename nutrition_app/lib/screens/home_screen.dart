@@ -3,15 +3,15 @@ import 'package:intl/intl.dart';
 import 'dart:developer' as developer;
 import 'package:nutrition_app/models/goal.dart';
 import 'package:nutrition_app/models/log.dart';
-import 'package:nutrition_app/services/api_client.dart';
+import 'package:nutrition_app/main.dart';
 import 'package:nutrition_app/widgets/calorie_progress_card.dart';
 import 'package:nutrition_app/widgets/macro_progress.dart';
 import 'package:nutrition_app/widgets/meal_card_with_recommendation.dart';
-import 'package:nutrition_app/screens/log_food_screen.dart'; // Added import
+import 'package:nutrition_app/screens/log_food_screen.dart';
+import 'package:nutrition_app/screens/chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  final int userId;
-  const HomeScreen({super.key, required this.userId});
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => HomeScreenState();
@@ -19,7 +19,6 @@ class HomeScreen extends StatefulWidget {
 
 class HomeScreenState extends State<HomeScreen> {
   late Future<Map<String, dynamic>> _homeDataFuture;
-  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -39,10 +38,10 @@ class HomeScreenState extends State<HomeScreen> {
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     try {
       final results = await Future.wait([
-        apiService.getTotals(widget.userId, today),
-        apiService.getAllGoals(),
-        apiService.getLogs(widget.userId, today), // ✅ Add userId parameter
-        apiService.getProfileById(widget.userId),
+        apiService.getTotals(today),
+        apiService.getGoals(),
+        apiService.getLogs(today),
+        apiService.getProfile(),
       ]);
       return {
         'totals': results[0],
@@ -96,37 +95,7 @@ class HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _showSnackBar(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    if (index == 1) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => LogFoodScreen(userId: widget.userId),
-        ),
-      ).then((result) {
-        if (result != null && result == true) {
-          refreshData();
-          _showSnackBar('Food logged successfully!');
-        } else if (result != null && result == false) {
-          _showSnackBar('Failed to log food.');
-        }
-      });
-    }
-  }
-
   Future<void> _editLog(int logId) async {
-    // Find the log to edit
     final logs = await _getHomeData().then(
       (data) => data['logs'] as List<DailyLogModel>,
     );
@@ -134,13 +103,11 @@ class HomeScreenState extends State<HomeScreen> {
 
     if (!mounted) return;
 
-    // Navigate to log food screen with edit mode
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => LogFoodScreen(
-          userId: widget.userId,
-          editLog: logToEdit, // Pass the log to edit
+          editLog: logToEdit,
         ),
       ),
     );
@@ -148,6 +115,18 @@ class HomeScreenState extends State<HomeScreen> {
     if (result == true && mounted) {
       refreshData();
     }
+  }
+
+  void _chatAboutFood(DailyLogModel log) {
+    if (log.food == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          initialPrompt: 'Is ${log.food!.name} a good choice for me? Give me a small explanation.',
+        ),
+      ),
+    );
   }
 
   @override
@@ -166,9 +145,7 @@ class HomeScreenState extends State<HomeScreen> {
           if (snapshot.hasData) {
             final homeData = snapshot.data!;
             final totals = homeData['totals'] as Map<String, dynamic>;
-            final goals = (homeData['goals'] as List)
-                .map((g) => Goal.fromJson(g as Map<String, dynamic>))
-                .toList();
+            final goals = homeData['goals'] as List<Goal>;
             final logs = homeData['logs'] as List<DailyLogModel>;
             final profile = homeData['profile'] as Map<String, dynamic>;
             final goal = goals.isNotEmpty ? goals.first : null;
@@ -248,9 +225,9 @@ class HomeScreenState extends State<HomeScreen> {
                       final log = logs[index];
                       return MealCardWithRecommendation(
                         log: log,
-                        userId: widget.userId,
-                        onEdit: () => _editLog(log.id), // Call with log ID
-                        onDelete: () => _deleteLog(log.id), // Call with log ID
+                        onEdit: () => _editLog(log.id),
+                        onDelete: () => _deleteLog(log.id),
+                        onChat: () => _chatAboutFood(log),
                       );
                     }, childCount: logs.length),
                   )

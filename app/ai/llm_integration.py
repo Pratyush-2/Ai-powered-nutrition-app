@@ -1,5 +1,5 @@
-import requests
-import json
+import httpx
+import asyncio
 from sqlalchemy.orm import Session
 from app.crud import get_user_profile, get_user_goals, get_logs_by_user
 from datetime import date, datetime, timedelta
@@ -7,12 +7,58 @@ from datetime import date, datetime, timedelta
 OLLAMA_URL = "http://localhost:11434/api/generate"
 MODEL_NAME = "phi3:mini"
 
-def build_user_context(db: Session, user_id: int) -> str:
+PROMPT_TEMPLATE_GENERAL = """
+You are a friendly and knowledgeable nutrition assistant. Your goal is to provide clear, helpful, and personalized advice.
+
+Here is some context about the user:
+{user_context}
+
+User's Question: "{user_input}"
+
+Please structure your response in the following format, keeping it clear and easy to read:
+
+**Friendly opener (1 line):** Start with a warm and encouraging sentence.
+
+**Direct Answer (2-4 lines):** Provide a straightforward answer to the user's question.
+
+**✅ What’s Good:**
+- Bullet point 1
+- Bullet point 2
+- Bullet point 3
+
+**⚠️ Watch Out:**
+- Bullet point 1 (Only if there's a very common or important pitfall)
+
+**💡 Tips / Better Choices:**
+- Actionable suggestion 1
+- Actionable suggestion 2
+- Actionable suggestion 3
+
+**🎯 For You:** Briefly explain how this advice specifically helps the user achieve their personal goals (e.g., "This will help you with your goal of...").
+
+**❓ Quick Follow-up:** Ask one short, engaging question to encourage a continued conversation.
+"""
+
+PROMPT_TEMPLATE_FOOD_SPECIFIC = """
+You are a friendly and knowledgeable nutrition assistant. A user is asking if a specific food is a good choice for them.
+
+Here is some context about the user:
+{user_context}
+
+User's Question: "{user_input}"
+
+Please provide a small, direct explanation (3-5 sentences) answering their question. Consider the user's goals and health profile when deciding if the food is a good choice. Explain your reasoning clearly and concisely. Start with a friendly opener.
+"""
+
+async def build_user_context(db: Session, user_id: int) -> str:
     """Build comprehensive user context including detailed food logs."""
+    return await asyncio.to_thread(_build_user_context_sync, db, user_id)
+
+def _build_user_context_sync(db: Session, user_id: int) -> str:
+    """Synchronous version of building user context."""
     
     context_parts = []
     
-    # User profile
     user_profile = get_user_profile(db, user_id)
     if user_profile:
         context_parts.append(f"""USER PROFILE:
@@ -27,7 +73,6 @@ def build_user_context(db: Session, user_id: int) -> str:
 - Allergies: {user_profile.allergies or 'None'}
 - Health Conditions: {user_profile.health_conditions or 'None'}""")
     
-    # Current goals
     user_goals = get_user_goals(db, user_id)
     if user_goals:
         goal = user_goals[0]
@@ -37,9 +82,8 @@ def build_user_context(db: Session, user_id: int) -> str:
 - Daily Carbs: {goal.carbs_goal or 'Not set'}g
 - Daily Fats: {goal.fats_goal or 'Not set'}g""")
     
-    # Recent food logs (last 7 days, more detailed)
     seven_days_ago = datetime.now().date() - timedelta(days=7)
-    recent_logs = get_logs_by_user(db, user_id, limit=20)  # Get more logs
+    recent_logs = get_logs_by_user(db, user_id, limit=20)
     if recent_logs:
         context_parts.append("RECENT FOOD LOGS (Last 7 days):")
         recent_entries = []
@@ -52,48 +96,49 @@ def build_user_context(db: Session, user_id: int) -> str:
                 carbs = log.food.carbs * quantity if log.food.carbs else 0
                 fats = log.food.fats * quantity if log.food.fats else 0
                 
-                entry = f"- {log.date}: {quantity}x {food_name} ({calories:.0f} kcal, {protein:.1f}g protein, {carbs:.1f}g carbs, {fats:.1f}g fats)"
+                entry = f"- {log.date}: {quantity}x {food_name} ({calories:.0f} kcal, {protein:.1f}g P, {carbs:.1f}g C, {fats:.1f}g F)"
                 recent_entries.append(entry)
         
         if recent_entries:
-            context_parts.append("\n".join(recent_entries[:10]))  # Show last 10 entries
+            context_parts.append("\n".join(recent_entries[:10]))
         else:
             context_parts.append("- No recent logs in the last 7 days")
     
     return "\n\n".join(context_parts)
 
-def query_ollama(prompt: str) -> str:
-    """Query Ollama with settings optimized for longer, comprehensive responses."""
+async def query_ollama(prompt: str) -> str:
+    """Asynchronously query Ollama with optimized settings."""
     
     payload = {
         "model": MODEL_NAME,
         "prompt": prompt,
         "stream": False,
         "options": {
-            "temperature": 0.7,     # Balanced creativity
+            "temperature": 0.7,
             "top_p": 0.9,
             "top_k": 40,
-            "num_predict": 300,     # Much longer responses (was 50)
-            "num_ctx": 2048,        # Larger context window (was 512)
+            "num_predict": 450, 
+            "num_ctx": 3000,
             "repeat_penalty": 1.1,
             "repeat_last_n": 64
         }
     }
     
-    try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=20)  # Longer timeout
-        response.raise_for_status()
-        
-        result = response.json()
-        return result.get("response", "").strip()
-        
-    except requests.exceptions.ConnectionError:
-        return "AI assistant is currently unavailable. Please try again later."
-    except requests.exceptions.Timeout:
-        return "The response is taking longer than expected. Could you try rephrasing your question?"
-    except Exception as e:
-        print(f"Ollama error: {e}")
-        return "I'm having trouble processing your request right now. Please try again."
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(OLLAMA_URL, json=payload, timeout=30.0)
+            response.raise_for_status()
+            
+            result = response.json()
+            return result.get("response", "").strip()
+            
+        except httpx.ConnectError:
+            return "AI assistant is currently unavailable. Please try again later."
+        except httpx.TimeoutException:
+            return "The response is taking longer than expected. Could you try rephrasing your question?"
+        except Exception as e:
+            print(f"Ollama error: {e}")
+            return "I'm having trouble processing your request right now. Please try again."
 
 def is_greeting_only(text: str) -> bool:
     """Check if input is just a greeting with no real question."""
@@ -102,78 +147,43 @@ def is_greeting_only(text: str) -> bool:
         "good afternoon", "good evening", "howdy", "aloha", "bonjour", "hola",
         "hi there", "hey there", "hello there", "what's up", "whats up", "wassup"
     }
-    
     text_clean = text.lower().strip()
-    
-    # Exact greeting matches
     if text_clean in greetings:
         return True
-    
-    # Very short phrases that are just greetings
     if len(text_clean.split()) <= 2 and any(greet in text_clean for greet in ["hi", "hey", "hello", "sup"]):
         return True
-    
     return False
 
-def chat_with_ai(db: Session, user_id: int, user_input: str) -> str:
-    """Enhanced chat function with comprehensive responses and detailed context."""
+def is_food_specific_question(text: str) -> bool:
+    """Check if the question is about a specific food."""
+    text_lower = text.lower()
+    return "is" in text_lower and "a good choice for me" in text_lower
+
+async def chat_with_ai(db: Session, user_id: int, user_input: str) -> str:
+    """Asynchronous and enhanced chat function with detailed context and prompt engineering."""
     
-    # Clean input
     user_input_clean = user_input.lower().strip()
     
-    # Only give short responses for pure greetings
-    if is_greeting_only(user_input):
-        user_profile = get_user_profile(db, user_id)
+    if await asyncio.to_thread(is_greeting_only, user_input):
+        user_profile = await asyncio.to_thread(get_user_profile, db, user_id)
         user_name = user_profile.name if user_profile else "there"
-        return f"Hello {user_name}! I'm your nutrition assistant. I can help you with meal planning, understanding your nutrition goals, tracking your progress, and answering any questions about healthy eating. What would you like to know?"
-    
-    # Check for very basic single words that aren't questions
-    basic_words = {"ok", "okay", "yes", "no", "sure", "maybe", "thanks", "thank you", "bye", "goodbye"}
-    if user_input_clean in basic_words or (len(user_input_clean.split()) == 1 and user_input_clean in basic_words):
-        if "thanks" in user_input_clean or "thank" in user_input_clean:
-            return "You're welcome! I'm here whenever you need nutrition advice or help with your goals."
-        elif "bye" in user_input_clean or "goodbye" in user_input_clean:
-            return "Goodbye! Remember to stay hydrated, eat balanced meals, and track your nutrition. Take care!"
-        else:
-            return "Great! How else can I help you with your nutrition today?"
-    
+        return f"Hello {user_name}! I'm your nutrition assistant. How can I help you with your health and wellness goals today?"
+
     try:
-        # Get comprehensive user context
-        user_context = build_user_context(db, user_id)
+        user_context = await build_user_context(db, user_id)
         
-        # Get user name for personalization
-        user_profile = get_user_profile(db, user_id)
-        user_name = user_profile.name if user_profile else "there"
+        if is_food_specific_question(user_input):
+            prompt = PROMPT_TEMPLATE_FOOD_SPECIFIC.format(user_context=user_context, user_input=user_input)
+        else:
+            prompt = PROMPT_TEMPLATE_GENERAL.format(user_context=user_context, user_input=user_input)
+
+        response = await query_ollama(prompt)
         
-        # Create comprehensive prompt that encourages detailed responses
-        prompt = f"""You are a knowledgeable nutrition assistant helping {user_name} with their health and wellness goals.
-
-{user_context}
-
-User's Question: {user_input}
-
-Please provide a comprehensive, helpful response that:
-- References their personal profile, goals, and recent eating habits when relevant
-- Gives specific, actionable nutrition advice
-- Explains concepts clearly with examples
-- Considers their individual needs and preferences
-- Suggests concrete next steps or follow-up questions
-
-Be thorough but conversational. Include relevant nutritional information, portion suggestions, or meal ideas based on their recent logs and goals.
-
-Response:"""
-
-        # Get comprehensive Ollama response
-        response = query_ollama(prompt)
-        
-        # Validate and clean response
-        if response and len(response.strip()) >= 10:  # Minimum length for meaningful responses
-            # Don't truncate - allow full responses
+        if response and len(response.strip()) >= 20:
             return response
         
-        # Fallback for failed responses
-        return f"I understand you're asking about nutrition. Based on your goals and recent eating patterns, I'd recommend focusing on balanced meals with adequate protein. Could you tell me more specifically what aspect of nutrition you'd like help with?"
+        return "I'm not quite sure how to respond to that. Could you try asking me a different question about your nutrition?"
         
     except Exception as e:
         print(f"Chat error: {e}")
-        return "I'm having some technical difficulties right now, but I'd still love to help with your nutrition questions. Could you try rephrasing your question?"
+        return "I'm having some technical difficulties right now. Could you try asking your question again in a moment?"

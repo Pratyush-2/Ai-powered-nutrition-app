@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:nutrition_app/services/api_client.dart';
+import 'package:nutrition_app/main.dart';
 import 'package:nutrition_app/models/profile.dart';
 import 'package:nutrition_app/models/goal.dart';
 import 'dart:developer' as developer;
 
 class SetGoalsScreen extends StatefulWidget {
-  final int userId;
-
-  const SetGoalsScreen({super.key, required this.userId});
+  const SetGoalsScreen({super.key});
 
   @override
   State<SetGoalsScreen> createState() => _SetGoalsScreenState();
@@ -59,10 +57,10 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
 
   Future<void> _fetchUserData() async {
     try {
-      final profileData = await apiService.getProfileById(widget.userId);
+      final profileData = await apiService.getProfile();
       _userProfile = UserProfileModel.fromJson(profileData);
 
-      final goals = await apiService.getGoals(widget.userId);
+      final goals = await apiService.getGoals();
       if (goals.isNotEmpty) {
         _currentGoals = goals.first;
       }
@@ -171,7 +169,6 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
 
     try {
       final goalData = {
-        'user_id': widget.userId,
         'calories_goal': _calculatedCalories.round(),
         'protein_goal': _calculatedProtein.round(),
         'carbs_goal': _calculatedCarbs.round(),

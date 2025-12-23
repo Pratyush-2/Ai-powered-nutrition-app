@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-// import 'package:nutrition_app/widgets/meal_card.dart';
-import 'package:nutrition_app/services/api_client.dart'; // Import the centralized API client
+import 'package:nutrition_app/main.dart';
 import 'package:nutrition_app/models/log.dart';
 import 'package:nutrition_app/widgets/meal_card_with_recommendation.dart';
 
 class HistoryScreen extends StatefulWidget {
-  final int userId;
-  const HistoryScreen({super.key, required this.userId});
+  const HistoryScreen({super.key});
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -27,7 +25,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void _fetchLogs() {
     final formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate);
     setState(() {
-      _dailyLogsFuture = apiService.getLogs(widget.userId, formattedDate);
+      _dailyLogsFuture = apiService.getLogs(formattedDate);
     });
   }
 
@@ -99,7 +97,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         if (food == null) return const SizedBox.shrink();
                         return MealCardWithRecommendation(
                           log: log,
-                          userId: widget.userId,
                           onEdit: () {
                             // Placeholder for edit logic
                           },

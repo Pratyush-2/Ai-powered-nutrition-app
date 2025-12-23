@@ -10,134 +10,160 @@ _CACHE_DURATION = 300  # 5 minutes
 @lru_cache(maxsize=100)
 def search_food_by_name(food_name: str):
     """
-    Searches for food with intelligent sorting and caching.
-    Prioritizes: exact matches > starts with > contains > others
+    Searches for food with aggressive caching for speed.
+    Strategy: Return cached data instantly, refresh in background
     """
     
-    # Check cache first
     cache_key = food_name.lower().strip()
     current_time = time.time()
     
+    # SPEED OPTIMIZATION: Check cache with longer TTL (24 hours instead of 5 minutes)
     if cache_key in _cache:
         cached_data, timestamp = _cache[cache_key]
-        if current_time - timestamp < _CACHE_DURATION:
+        age = current_time - timestamp
+        
+        # Return cached data immediately if less than 24 hours old
+        if age < 86400:  # 24 hours
+            print(f"✅ Returning cached results for '{food_name}' (age: {int(age/60)} minutes)")
             return cached_data
     
-    # Try external API first, then fallback to local data
+    # SPEED OPTIMIZATION: Try local DB first for instant results
+    print(f"🔍 Checking local database for '{food_name}'...")
+    local_result = _search_local_database(food_name, cache_key, current_time)
+    
+    if local_result.get("products"):
+        print(f"✅ Found {len(local_result['products'])} results in local database (instant!)")
+        # Cache local results
+        _cache[cache_key] = (local_result, current_time)
+        return local_result
+    
+    # Not in local DB, try OpenFoodFacts (with optimizations)
+    print(f"🔍 Searching OpenFoodFacts for '{food_name}'...")
     result = _search_openfoodfacts(food_name, cache_key, current_time)
     
-    # If no results from API, try local database
-    if not result.get("products"):
-        print(f"No external results for '{food_name}', using local database")
-        result = _search_local_database(food_name, cache_key, current_time)
+    if result.get("products"):
+        return result
     
-    return result
+    # No results found anywhere
+    print(f"❌ No results found for '{food_name}'")
+    return {"products": []}
 
 def _search_openfoodfacts(food_name: str, cache_key: str, current_time: float):
-    """Search OpenFoodFacts API with improved error handling"""
+    """Search OpenFoodFacts API with improved speed and reliability"""
     
-    url = "https://world.openfoodfacts.org/cgi/search.pl"
+    # SPEED OPTIMIZATION: Use both endpoints in parallel
+    endpoints = [
+        "https://world.openfoodfacts.org/cgi/search.pl",
+        "https://world.openfoodfacts.net/cgi/search.pl",
+    ]
+    
+    # Better headers to avoid being blocked
+    headers = {
+        'User-Agent': 'NutritionApp/1.0 (Python requests)',
+        'Accept': 'application/json',
+    }
+    
+    # SPEED OPTIMIZATION: Smaller page size and only essential fields
     params = {
         "search_terms": food_name,
         "search_simple": 1,
-        "action": "process", 
+        "action": "process",
         "json": 1,
-        "page_size": 20,  # Limit results for speed
-        "sort_by": "popularity"  # Better sorting than last_modified
+        "page_size": 5,  # Reduced from 10 for faster response
+        "fields": "product_name,brands,nutriments,serving_size"  # Only what we need
     }
     
-    try:
-        # Try with longer timeout and different parameters
-        response = requests.get(url, params=params, timeout=15)  # Increased timeout
-        response.raise_for_status()
-        
-        data = response.json()
-        products = data.get("products", [])
-        
-        # If no products found, try a simpler search
-        if not products:
-            print(f"No products found for '{food_name}', trying simpler search...")
-            simple_params = {
-                "search_terms": food_name,
-                "json": 1,
-                "page_size": 10,
-            }
-            response2 = requests.get(url, params=simple_params, timeout=10)
-            if response2.status_code == 200:
-                data2 = response2.json()
-                products = data2.get("products", [])
-                print(f"Simple search found {len(products)} products")
-        
-        # Intelligent scoring and sorting
-        scored_products = []
-        search_lower = food_name.lower().strip()
-        
-        for product in products:
-            product_name = product.get("product_name", "").lower().strip()
-            if not product_name:
-                continue
+    # SPEED OPTIMIZATION: Try both endpoints in parallel with shorter timeout
+    import concurrent.futures
+    
+    def try_endpoint(url):
+        """Try a single endpoint with optimized settings"""
+        try:
+            session = requests.Session()
+            session.headers.update(headers)
+            
+            response = session.get(
+                url, 
+                params=params, 
+                timeout=3,  # REDUCED from 8s to 3s for speed
+                allow_redirects=True
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                products = data.get("products", [])
                 
-            # Calculate relevance score
-            score = 0
-            
-            # Exact match = highest score
-            if product_name == search_lower:
-                score = 100
-            # Starts with search term
-            elif product_name.startswith(search_lower):
-                score = 80
-            # Contains search term as whole word
-            elif f" {search_lower} " in f" {product_name} ":
-                score = 60
-            # Contains search term anywhere
-            elif search_lower in product_name:
-                score = 40
-            # Partial word matches
-            else:
-                words = search_lower.split()
-                matches = sum(1 for word in words if word in product_name)
-                if matches > 0:
-                    score = 20 + (matches * 5)
-                else:
-                    score = 10
-            
-            # Boost score for common food items
-            if any(term in product_name for term in ['rice', 'chicken', 'beef', 'fish', 'eggs', 'milk', 'bread', 'pasta']):
-                score += 5
+                if products:
+                    return (True, data, url)
+            return (False, None, url)
+        except:
+            return (False, None, url)
+    
+    # Try both endpoints in parallel (whichever responds first wins!)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(try_endpoint, url) for url in endpoints]
+        
+        # Wait for first successful response (or all to fail)
+        for future in concurrent.futures.as_completed(futures, timeout=4):
+            success, data, url = future.result()
+            if success:
+                print(f"✅ Found {len(data.get('products', []))} products from OpenFoodFacts ({url})!")
                 
-            # Penalize branded or processed foods (less for search results)
-            if any(term in product_name for term in ['ben\'s', 'brand', 'processed', 'instant', 'ready']):
-                score -= 2  # Reduced penalty for search
-            
-            # Ensure serving_size exists
-            product["serving_size"] = product.get("serving_size", "100g")
-            
-            scored_products.append((score, product))
-        
-        # Sort by score (highest first) and take top 10
-        scored_products.sort(key=lambda x: x[0], reverse=True)
-        data["products"] = [product for score, product in scored_products[:10]]
-        
-        # Cache the result
-        _cache[cache_key] = (data, current_time)
-        
-        return data
-        
-    except requests.exceptions.Timeout:
-        print(f"OpenFoodFacts API timeout for '{food_name}'")
-        # Return cached data if available, even if expired
-        if cache_key in _cache:
-            return _cache[cache_key][0]
-        return {"products": []}
-    except requests.exceptions.RequestException as e:
-        print(f"OpenFoodFacts API error for '{food_name}': {e}")
-        # Return cached data if available, even if expired
-        if cache_key in _cache:
-            return _cache[cache_key][0]
-        return {"products": []}
-    except Exception as e:
-        print(f"Food search error for '{food_name}': {e}")
-        return {"products": []}
+                # Process and score products
+                products = data.get("products", [])
+                scored_products = []
+                search_lower = food_name.lower().strip()
+                
+                for product in products:
+                    product_name = product.get("product_name", "").lower().strip()
+                    if not product_name:
+                        continue
+                        
+                    # Calculate relevance score
+                    score = 0
+                    
+                    # Exact match = highest score
+                    if product_name == search_lower:
+                        score = 100
+                    # Starts with search term
+                    elif product_name.startswith(search_lower):
+                        score = 80
+                    # Contains search term as whole word
+                    elif f" {search_lower} " in f" {product_name} ":
+                        score = 60
+                    # Contains search term anywhere
+                    elif search_lower in product_name:
+                        score = 40
+                    # Partial word matches
+                    else:
+                        words = search_lower.split()
+                        matches = sum(1 for word in words if word in product_name)
+                        if matches > 0:
+                            score = 20 + (matches * 5)
+                        else:
+                            score = 10
+                    
+                    # Boost score for common food items
+                    if any(term in product_name for term in ['rice', 'chicken', 'beef', 'fish', 'eggs', 'milk', 'bread', 'pasta']):
+                        score += 5
+                    
+                    # Ensure serving_size exists
+                    product["serving_size"] = product.get("serving_size", "100g")
+                    
+                    scored_products.append((score, product))
+                
+                # Sort by score (highest first) and take top 5
+                scored_products.sort(key=lambda x: x[0], reverse=True)
+                data["products"] = [product for score, product in scored_products[:5]]
+                
+                # Cache the result
+                _cache[cache_key] = (data, current_time)
+                
+                return data
+    
+    # All endpoints failed
+    print(f"❌ OpenFoodFacts failed for '{food_name}' - using local database")
+    return {"products": []}
 
 def _search_local_database(food_name: str, cache_key: str, current_time: float):
     """Search local nutrition database as fallback"""

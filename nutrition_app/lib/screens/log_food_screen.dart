@@ -8,13 +8,11 @@ import 'package:nutrition_app/main.dart';
 import 'package:nutrition_app/models/food.dart';
 import 'package:nutrition_app/models/log.dart';
 import 'dart:developer' as developer;
-// import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
 
 class LogFoodScreen extends StatefulWidget {
-  final int userId;
   final DailyLogModel? editLog;
 
-  const LogFoodScreen({super.key, required this.userId, this.editLog});
+  const LogFoodScreen({super.key, this.editLog});
 
   @override
   State<LogFoodScreen> createState() => _LogFoodScreenState();
@@ -24,7 +22,6 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
   final ImagePicker _picker = ImagePicker();
   XFile? _image;
 
-  // Controllers for manual logging
   final _foodNameController = TextEditingController();
   final _caloriesController = TextEditingController();
   final _proteinController = TextEditingController();
@@ -32,14 +29,12 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
   final _fatsController = TextEditingController();
   final _quantityController = TextEditingController();
 
-  // Controller and state for the search functionality
   final _searchController = TextEditingController();
   List<Food> _searchResults = [];
   bool _isLoading = false;
   bool _isSearching = false;
   Timer? _debounce;
 
-  // Add date selection
   DateTime _selectedDate = DateTime.now();
   bool _isEditing = false;
   int? _selectedFoodId;
@@ -47,16 +42,13 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
   @override
   void initState() {
     super.initState();
-    // Add a listener to the search controller to handle debouncing
     _searchController.addListener(_onSearchChanged);
 
-    // If editing an existing log, populate the fields
     if (widget.editLog != null) {
       _isEditing = true;
       _selectedDate = widget.editLog!.date;
       _quantityController.text = widget.editLog!.quantity.toString();
 
-      // Pre-populate food if available
       if (widget.editLog!.food != null) {
         _foodNameController.text = widget.editLog!.food!.name;
         _caloriesController.text = widget.editLog!.food!.calories.toString();
@@ -69,10 +61,7 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
 
   @override
   void dispose() {
-    // Cancel the timer to prevent memory leaks
     _debounce?.cancel();
-
-    // Dispose all text editing controllers
     _foodNameController.dispose();
     _caloriesController.dispose();
     _proteinController.dispose();
@@ -81,21 +70,16 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
     _quantityController.dispose();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
-
     super.dispose();
   }
 
   void _onSearchChanged() {
-    // If a debounce timer is already active, cancel it
     if (_debounce?.isActive ?? false) _debounce!.cancel();
-
-    // Set up a new debounce timer
     _debounce = Timer(const Duration(milliseconds: 500), () {
       final query = _searchController.text;
       if (query.isNotEmpty) {
         _performSearch(query);
       } else {
-        // Clear results if the search query is empty
         if (mounted) {
           setState(() {
             _searchResults = [];
@@ -115,139 +99,9 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
     try {
       final results = await apiService.searchFood(query);
       if (mounted) {
-        if (results.isEmpty) {
-          // Fallback: check local nutrition DB (must match backend keys)
-          final localDb = {
-            'apple': Food(
-              name: 'Apple',
-              calories: 52,
-              protein: 0.3,
-              carbs: 14,
-              fats: 0.2,
-              servingSize: '1 medium apple (150g)',
-            ),
-            'banana': Food(
-              name: 'Banana',
-              calories: 89,
-              protein: 1.1,
-              carbs: 23,
-              fats: 0.3,
-              servingSize: '1 medium banana (120g)',
-            ),
-            'orange': Food(
-              name: 'Orange',
-              calories: 49,
-              protein: 0.9,
-              carbs: 13,
-              fats: 0.1,
-              servingSize: '1 medium orange (130g)',
-            ),
-            'chicken': Food(
-              name: 'Chicken',
-              calories: 165,
-              protein: 31,
-              carbs: 0,
-              fats: 3.6,
-              servingSize: '100g cooked breast',
-            ),
-            'beef': Food(
-              name: 'Beef',
-              calories: 250,
-              protein: 26,
-              carbs: 0,
-              fats: 17,
-              servingSize: '100g cooked steak',
-            ),
-            'rice': Food(
-              name: 'Rice',
-              calories: 130,
-              protein: 2.7,
-              carbs: 28,
-              fats: 0.3,
-              servingSize: '1 cup cooked (150g)',
-            ),
-            'bread': Food(
-              name: 'Bread',
-              calories: 265,
-              protein: 9.4,
-              carbs: 49,
-              fats: 3.2,
-              servingSize: '2 slices (60g)',
-            ),
-            'pizza': Food(
-              name: 'Pizza',
-              calories: 266,
-              protein: 11,
-              carbs: 33,
-              fats: 10,
-              servingSize: '1 slice (100g)',
-            ),
-            'pasta': Food(
-              name: 'Pasta',
-              calories: 157,
-              protein: 5.8,
-              carbs: 31,
-              fats: 0.9,
-              servingSize: '1 cup cooked (140g)',
-            ),
-            'salad': Food(
-              name: 'Salad',
-              calories: 25,
-              protein: 1.5,
-              carbs: 4.5,
-              fats: 0.2,
-              servingSize: '1 cup mixed greens (50g)',
-            ),
-            'yogurt': Food(
-              name: 'Yogurt',
-              calories: 61,
-              protein: 3.5,
-              carbs: 4.7,
-              fats: 3.3,
-              servingSize: '100g plain yogurt',
-            ),
-            'eggs': Food(
-              name: 'Eggs',
-              calories: 155,
-              protein: 13,
-              carbs: 1.1,
-              fats: 11,
-              servingSize: '2 large eggs (100g)',
-            ),
-            'fish': Food(
-              name: 'Fish',
-              calories: 146,
-              protein: 25,
-              carbs: 0,
-              fats: 5.2,
-              servingSize: '100g salmon',
-            ),
-            'potatoes': Food(
-              name: 'Potatoes',
-              calories: 77,
-              protein: 2,
-              carbs: 17,
-              fats: 0.1,
-              servingSize: '1 medium potato (173g)',
-            ),
-          };
-          final key = query.toLowerCase().replaceAll(' ', '');
-          if (localDb.containsKey(key)) {
-            setState(() {
-              _searchResults = [localDb[key]!];
-            });
-            _showSnackBar('Loaded from local database.');
-          } else {
-            setState(() {
-              _searchResults = [];
-            });
-            _showSnackBar('No results found.');
-          }
-        } else {
-          setState(() {
-            _searchResults = results;
-          });
-        }
+        setState(() {
+          _searchResults = results;
+        });
       }
     } catch (e) {
       developer.log('Error searching food: $e');
@@ -271,12 +125,10 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
     _fatsController.text = food.fats.toString();
     _selectedFoodId = food.id;
 
-    // Clear search results and controller after selection
     if (mounted) {
       setState(() {
         _searchResults = [];
         _searchController.text = '';
-        // Hide keyboard
         FocusScope.of(context).unfocus();
       });
     }
@@ -284,144 +136,58 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      XFile? picked;
+      final XFile? pickedFile = await _picker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
 
-      if (source == ImageSource.gallery) {
-        // Use file picker for accessing all files/folders
-        FilePickerResult? result = await FilePicker.platform.pickFiles(
-          type: FileType.image,
-          allowMultiple: false,
-          dialogTitle: 'Select Food Image',
-          // Allow access to all file locations
-          allowCompression: true,
-          withData: false, // We don't need the data, just the path
-        );
+      if (pickedFile != null) {
+        setState(() {
+          _image = pickedFile;
+        });
 
-        if (result != null && result.files.isNotEmpty) {
-          final file = result.files.first;
-          if (file.path != null) {
-            picked = XFile(file.path!);
-          }
-        }
-      } else {
-        // Use camera as before
-        picked = await _picker.pickImage(
-          source: source,
-          imageQuality: 80,
-          maxWidth: 1024,
-          maxHeight: 1024,
-        );
-      }
-
-      if (picked != null && mounted) {
-        setState(() => _image = picked);
-        _showSnackBar('Analyzing image...');
-
+        // Identify food using AI
+        _showSnackBar('Analyzing image with AI...');
         try {
-          final dynamic apiResult = await apiService.identifyFood(picked.path);
+          final result = await apiService.identifyFood(pickedFile.path);
+          developer.log('Food identification result: $result');
 
-          print('🎯 API call successful, processing response...');
-
-          // Debug: Print the API response type and content
-          print('🔍 API Response Type: ${apiResult.runtimeType}');
-          print(
-            '🔍 API Response Keys: ${apiResult is Map ? apiResult.keys : 'Not a map'}',
-          );
-          print('🔍 API Response Full: $apiResult');
-
-          // ✅ EXTRACT THE DETECTED FOOD NAME SAFELY (User's fix)
-          String detectedFood = "Unknown food";
-
-          if (apiResult is Map<String, dynamic>) {
-            if (apiResult.containsKey('food_identified')) {
-              detectedFood = apiResult['food_identified'];
-            } else if (apiResult.containsKey('ready_to_log') &&
-                apiResult['ready_to_log'] is Map<String, dynamic> &&
-                apiResult['ready_to_log'].containsKey('food_name')) {
-              detectedFood = apiResult['ready_to_log']['food_name'];
-            }
-          }
-
-          print('🍽️ Final food detected: $detectedFood');
-
-          // Only update search controller if we have a valid food name
-          if (detectedFood != 'Unknown food') {
-            setState(() {
-              _searchController.text = detectedFood;
-            });
-          }
-
-          // Handle our Google Vision API response format
-          print(
-            '🔍 Checking for ready_to_log key: ${apiResult is Map ? apiResult.containsKey('ready_to_log') : 'Not a map'}',
-          );
-
-          // ✅ SAFER PARSING (ChatGPT's fix)
-          if (apiResult is Map && apiResult['ready_to_log'] != null) {
-            print('✅ Found ready_to_log data!');
-
-            final readyData = apiResult['ready_to_log'];
-            final foodName =
-                readyData['food_name'] ??
-                apiResult['food_identified'] ??
-                'Unknown food';
-
-            print('✅ Food recognized: $foodName');
-
-            // Direct nutrition data available - use it immediately!
-            setState(() {
-              _foodNameController.text =
-                  readyData['food_name']?.toString() ?? foodName;
-              _caloriesController.text =
-                  readyData['calories']?.toString() ?? '0';
-              _proteinController.text = readyData['protein']?.toString() ?? '0';
-              _carbsController.text = readyData['carbs']?.toString() ?? '0';
-              _fatsController.text = readyData['fats']?.toString() ?? '0';
-              _quantityController.text =
-                  '1.0'; // Always 1 serving, not the grams from API
-              // ✅ Instead, ensure it only gets set to valid food names
-              if (foodName != 'Unknown food') {
-                _searchController.text = foodName;
-              }
-            });
-
-            _selectedFoodId = null; // No database lookup needed
-
-            final method = apiResult['recognition_method'] ?? 'AI Recognition';
-            final confidence = apiResult['confidence'] != null
-                ? '${(apiResult['confidence'] * 100).round()}%'
-                : '';
-
-            _showSnackBar('✅ $method: $foodName ($confidence)');
-          } else {
-            print('⚠️ No ready_to_log found, falling back to search...');
-
-            // Fallback: Only search if we have a valid food name
-            final foodName = apiResult is Map
-                ? (apiResult['food_identified'] ?? detectedFood)
-                : detectedFood;
-
-            if (foodName != 'Unknown food') {
-              print('🧠 Searching for recognized food: $foodName');
-              _performSearch(foodName);
-              _showSnackBar('🔍 Searching for: $foodName');
+          // Extract food name from result (backend returns 'food_identified')
+          final foodName = result['food_identified'] as String? ?? 
+                          result['food_name'] as String? ?? 
+                          result['identified_food'] as String?;
+          
+          if (foodName != null && foodName.isNotEmpty) {
+            _showSnackBar('Found: $foodName - Auto-filling...');
+            
+            // Search for the identified food
+            _searchController.text = foodName;
+            await _performSearch(foodName);
+            
+            // AUTO-SELECT: Automatically select the first/best match
+            if (_searchResults.isNotEmpty) {
+              final bestMatch = _searchResults.first;
+              developer.log('Auto-selecting best match: ${bestMatch.name}');
+              
+              // Auto-populate all nutrition fields
+              _populateFoodFields(bestMatch);
+              
+              _showSnackBar('✅ Auto-filled: ${bestMatch.name}');
             } else {
-              print('⚠️ AI could not identify food clearly');
-              _showSnackBar('⚠️ Could not identify food. Please type the food name manually.');
+              _showSnackBar('Found: $foodName (no exact matches, please select manually)');
             }
+          } else {
+            _showSnackBar('Could not identify food. Please enter manually.');
           }
-        } catch (e, stackTrace) {
-          print('❌ EXCEPTION in image processing: $e');
-          print('❌ Stack trace: $stackTrace');
-          developer.log(
-            'Food identification error: $e',
-            stackTrace: stackTrace,
-          );
-          _showSnackBar('Failed to identify food. Please try again.');
+        } catch (e) {
+          developer.log('Food identification error: $e');
+          _showSnackBar('AI identification failed. Please search manually.');
         }
       }
     } catch (e) {
-      developer.log('Image picking error: $e');
+      developer.log('Image picker error: $e');
       _showSnackBar('Failed to pick image: $e');
     }
   }
@@ -431,92 +197,55 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         allowMultiple: false,
-        dialogTitle: 'Select Food Image from Files',
-        // Enable all file access for Google Files integration
-        allowCompression: true,
-        withData: false,
-        // This allows access to Google Drive, Downloads, etc.
-        initialDirectory: null, // Let system choose default
       );
 
-      if (result != null && result.files.isNotEmpty) {
-        final file = result.files.first;
-        if (file.path != null) {
-          // Create XFile from the selected file path
-          final pickedFile = XFile(file.path!);
+      if (result != null && result.files.single.path != null) {
+        final filePath = result.files.single.path!;
+        setState(() {
+          _image = XFile(filePath);
+        });
 
-          // Set the image and process it
-          setState(() => _image = pickedFile);
-          _showSnackBar('Processing selected image...');
+        // Identify food using AI
+        _showSnackBar('Analyzing image with AI...');
+        try {
+          final apiResult = await apiService.identifyFood(filePath);
+          developer.log('Food identification result: $apiResult');
 
-          try {
-            final dynamic apiResult = await apiService.identifyFood(
-              pickedFile.path,
-            );
-
-            // ✅ EXTRACT FOOD NAME SAFELY (Same fix as camera/gallery)
-            String foodName = "Unknown food";
-
-            if (apiResult is Map && apiResult['ready_to_log'] != null) {
-              final readyData = apiResult['ready_to_log'];
-              foodName =
-                  readyData['food_name'] ??
-                  apiResult['food_identified'] ??
-                  'Unknown food';
-
-              // ✅ AUTO-FILL FORM FIELDS
-              setState(() {
-                _foodNameController.text =
-                    readyData['food_name']?.toString() ?? foodName;
-                _caloriesController.text =
-                    readyData['calories']?.toString() ?? '0';
-                _proteinController.text =
-                    readyData['protein']?.toString() ?? '0';
-                _carbsController.text = readyData['carbs']?.toString() ?? '0';
-                _fatsController.text = readyData['fats']?.toString() ?? '0';
-                _quantityController.text = '1.0'; // Always 1 serving
-                _searchController.text =
-                    foodName; // Set search controller to recognized food
-              });
-
-              _selectedFoodId = null;
-
-              final method =
-                  apiResult['recognition_method'] ?? 'AI Recognition';
-              final confidence = apiResult['confidence'] != null
-                  ? '${(apiResult['confidence'] * 100).round()}%'
-                  : '';
-
-              _showSnackBar('✅ $method: $foodName ($confidence)');
+          // Extract food name from result (backend returns 'food_identified')
+          final foodName = apiResult['food_identified'] as String? ?? 
+                          apiResult['food_name'] as String? ?? 
+                          apiResult['identified_food'] as String?;
+          
+          if (foodName != null && foodName.isNotEmpty) {
+            _showSnackBar('Found: $foodName - Auto-filling...');
+            
+            // Search for the identified food
+            _searchController.text = foodName;
+            await _performSearch(foodName);
+            
+            // AUTO-SELECT: Automatically select the first/best match
+            if (_searchResults.isNotEmpty) {
+              final bestMatch = _searchResults.first;
+              developer.log('Auto-selecting best match: ${bestMatch.name}');
+              
+              // Auto-populate all nutrition fields
+              _populateFoodFields(bestMatch);
+              
+              _showSnackBar('✅ Auto-filled: ${bestMatch.name}');
             } else {
-              // Fallback: Extract from other fields
-              if (apiResult is String && apiResult.isNotEmpty) {
-                foodName = apiResult;
-              } else if (apiResult is Map<String, dynamic>) {
-                foodName =
-                    apiResult['food_identified'] ??
-                    apiResult['food_name'] ??
-                    'Unknown food';
-              }
-
-              // Only search if we have a valid food name
-              if (foodName != 'Unknown food') {
-                _searchController.text = foodName;
-                await _performSearch(foodName);
-                _showSnackBar('🔍 Searching for: $foodName');
-              } else {
-                _showSnackBar('⚠️ Could not identify food clearly. Please type the food name manually.');
-              }
+              _showSnackBar('Found: $foodName (no exact matches, please select manually)');
             }
-          } catch (e) {
-            developer.log('File identification error: $e');
-            _showSnackBar('Failed to identify food. Please try again.');
+          } else {
+            _showSnackBar('Could not identify food. Please enter manually.');
           }
+        } catch (e) {
+          developer.log('Food identification error: $e');
+          _showSnackBar('AI identification failed. Please search manually.');
         }
       }
     } catch (e) {
       developer.log('File picker error: $e');
-      _showSnackBar('Failed to open file picker. Please try again.');
+      _showSnackBar('Failed to pick file: $e');
     }
   }
 
@@ -531,17 +260,23 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
             children: [
               ListTile(
                 leading: const Icon(Icons.camera_alt),
-                title: const Text('Take Photo'),
-                subtitle: const Text('Use camera to capture food'),
+                title: const Text('Camera'),
                 onTap: () {
                   Navigator.of(context).pop();
                   _pickImage(ImageSource.camera);
                 },
               ),
               ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Gallery'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.folder_open),
-                title: const Text('Choose from Files'),
-                subtitle: const Text('Select from any folder'),
+                title: const Text('File Browser'),
                 onTap: () {
                   Navigator.of(context).pop();
                   _openFilePicker();
@@ -549,42 +284,10 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-          ],
         );
       },
     );
   }
-
-  /*
-  Future<void> _scanBarcode() async {
-    try {
-      final String barcode = await FlutterBarcodeScanner.scanBarcode(
-        '#ff6666', // color
-        'Cancel', // cancel button text
-        true, // show flash icon
-        ScanMode.BARCODE,
-      );
-
-      if (!mounted || barcode == '-1') return;
-
-      final product = await _openFoodFactsService.getProductByBarcode(barcode);
-      
-      if (product.containsKey('product')) {
-        final food = Food.fromOpenFoodFacts(product['product']);
-        _populateFoodFields(food);
-      } else {
-        _showSnackBar('Product not found for this barcode.');
-      }
-    } catch (e) {
-      _showSnackBar('Failed to scan barcode: $e');
-    }
-  }
-  */
 
   Future<void> _logFood() async {
     if (!mounted) return;
@@ -596,7 +299,6 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
       int? foodId;
       if (_selectedFoodId != null) {
         foodId = _selectedFoodId;
-        developer.log('Using existing food ID: $foodId');
       } else {
         final newFood = Food(
           name: _foodNameController.text,
@@ -605,48 +307,36 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
           carbs: double.tryParse(_carbsController.text) ?? 0.0,
           fats: double.tryParse(_fatsController.text) ?? 0.0,
         );
-        developer.log('Creating new food: ${newFood.name}');
         final createdFood = await apiService.createFood(newFood);
-        developer.log(
-          'Created food response: ${createdFood.id}, ${createdFood.name}',
-        );
         foodId = createdFood.id;
-        if (foodId != null && foodId <= 0) {
-          throw Exception('Food creation failed - invalid ID returned');
-        }
       }
 
       final quantity = double.tryParse(_quantityController.text) ?? 1.0;
       if (_isEditing && widget.editLog != null) {
-        // Update existing log
         final updateData = {
           'quantity': quantity,
           'food_id': foodId,
           'date': DateFormat('yyyy-MM-dd').format(_selectedDate),
         };
-
         await apiService.updateLog(widget.editLog!.id, updateData);
       } else {
-        // Create new log (existing code)
         final logData = {
           'food_id': foodId,
           'quantity': quantity,
           'date': DateFormat('yyyy-MM-dd').format(_selectedDate),
-          'user_id': widget.userId,
         };
-
         await apiService.addLog(logData);
       }
 
       if (mounted) {
-        Navigator.of(context).pop(true); // Indicate success
+        Navigator.of(context).pop(true);
       }
     } catch (e, s) {
       developer.log('Error logging food: $e');
       developer.log('Stack trace: $s');
       if (mounted) {
         _showSnackBar('Failed to log food: $e');
-        Navigator.of(context).pop(false); // Indicate failure
+        Navigator.of(context).pop(false);
       }
     } finally {
       if (mounted) {

@@ -1,8 +1,8 @@
-"""Add serving_size to Food model
+"""Initial database schema with auth
 
-Revision ID: 2dcfdb5e3e4d
-Revises: 
-Create Date: 2025-09-05 18:49:18.352487
+Revision ID: 929893639541
+Revises: 3827482a4879
+Create Date: 2025-12-23 02:34:07.812869
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '2dcfdb5e3e4d'
-down_revision: Union[str, Sequence[str], None] = None
+revision: str = '929893639541'
+down_revision: Union[str, Sequence[str], None] = '3827482a4879'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

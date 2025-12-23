@@ -2,6 +2,14 @@ from datetime import date
 from typing import Optional, List, Any, Dict
 from pydantic import BaseModel
 
+# ---------- Token ----------
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
+
 # ---------- Food ----------
 class FoodBase(BaseModel):
     name: str
@@ -23,10 +31,9 @@ class Food(FoodBase):
 class DailyLogBase(BaseModel):
     quantity: float
     food_id: int
-    user_id: int
 
 class DailyLogCreate(DailyLogBase):
-    date: str  # Accept date as string from Flutter
+    date: str
 
 class DailyLogUpdate(BaseModel):
     quantity: Optional[float] = None
@@ -35,7 +42,7 @@ class DailyLogUpdate(BaseModel):
 
 class DailyLog(DailyLogBase):
     id: int
-    date: date  # Database returns date object
+    date: date
     food: Optional[Food] = None
 
     class Config:
@@ -49,7 +56,7 @@ class DailyTotals(BaseModel):
     carbs: float
     fats: float
 
-# ---------- Goals ----------  # 🔹 CHANGES: Use *_goal to match DB columns
+# ---------- Goals ----------
 class UserGoalBase(BaseModel):
     calories_goal: float
     protein_goal: float
@@ -57,13 +64,14 @@ class UserGoalBase(BaseModel):
     fats_goal: float
 
 class UserGoalCreate(UserGoalBase):
-    user_id: int  # Add this field
+    pass
 
 class UserGoalUpdate(UserGoalBase):
-    pass  # No additional fields needed for updates
+    pass
 
 class UserGoal(UserGoalBase):
     id: int
+    user_id: int
 
     class Config:
         from_attributes = True
@@ -79,16 +87,12 @@ class UserProfileBase(BaseModel):
     goal: Optional[str] = None
 
 class UserProfileCreate(UserProfileBase):
-    pass
+    email: str
+    password: str
 
 class UserProfile(UserProfileBase):
     id: int
-
-    class Config:
-        from_attributes = True
-
-class UserProfileResponse(UserProfileBase):
-    id: int
+    email: str
 
     class Config:
         from_attributes = True
@@ -100,16 +104,14 @@ class FactOut(BaseModel):
 
 class ChatRequest(BaseModel):
     query: str
-    user_id: int
 
 class NutritionResult(BaseModel):
-    score: float  # 0-100 nutritional score
+    score: float
     recommended: bool
-    confidence: float  # 0.6-0.95 confidence level
+    confidence: float
     reasoning: str
-    nutritional_breakdown: Dict[str, float]  # Component scores
-    nutritional_details: Dict[str, float]  # Raw nutritional data
+    nutritional_breakdown: Dict[str, float]
+    nutritional_details: Dict[str, float]
 
 class ClassifyRequest(BaseModel):
     food_name: str
-    user_id: int

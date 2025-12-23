@@ -5,7 +5,7 @@ def calculate_targets(db: Session, user_id: int):
     """
     Calculates target calories, protein, carbs, and fats based on user profile.
     """
-    profile = crud.get_user_profile_by_id(db, user_id)
+    profile = crud.get_user_profile(db, user_id)
     if not profile:
         # Handle case where profile is not found, perhaps raise an exception or return default values
         return 0, 0, 0, 0 # Or raise HTTPException

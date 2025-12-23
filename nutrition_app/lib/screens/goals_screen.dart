@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nutrition_app/services/api_client.dart';
+import 'package:nutrition_app/main.dart';
 import '../models/goal.dart';
 import 'dart:developer' as developer;
 
@@ -12,7 +12,7 @@ class GoalsScreen extends StatefulWidget {
 }
 
 class _GoalsScreenState extends State<GoalsScreen> {
-  late Future<List<Map<String, dynamic>>> _goalsFuture;
+  late Future<List<Goal>> _goalsFuture;
   bool _saving = false;
 
   @override
@@ -23,7 +23,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
   void _fetch() {
     setState(() {
-      _goalsFuture = apiService.getAllGoals();
+      _goalsFuture = apiService.getGoals();
     });
   }
 
@@ -146,7 +146,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Goals')),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
+      body: FutureBuilder<List<Goal>>(
         future: _goalsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -157,8 +157,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
             );
             return const Center(child: Text('Error'));
           } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-            final goals = snapshot.data!.map((g) => Goal.fromJson(g)).toList();
-            final goal = goals.first;
+            final goal = snapshot.data!.first;
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(

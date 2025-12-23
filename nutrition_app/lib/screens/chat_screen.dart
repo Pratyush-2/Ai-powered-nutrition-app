@@ -1,8 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-// import 'package:nutrition_app/services/api_service.dart';
-import '../main.dart'; // Import main.dart to access the global apiService
+import '../main.dart'; 
 
-// A simple model for a chat message
 class ChatMessage {
   final String text;
   final bool isUser;
@@ -11,8 +10,9 @@ class ChatMessage {
 }
 
 class ChatScreen extends StatefulWidget {
-  final int userId;
-  const ChatScreen({super.key, required this.userId});
+  final String? initialPrompt;
+
+  const ChatScreen({super.key, this.initialPrompt});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -22,19 +22,23 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
-  // Use the global apiService instance instead of creating a new one
-  // final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
-    // Add an initial greeting from the AI
-    _messages.add(
-      ChatMessage(
-        text: 'Hello! How can I help you with your nutrition today?',
-        isUser: false,
-      ),
-    );
+    if (widget.initialPrompt != null) {
+      // If there's an initial prompt, send it automatically
+      _controller.text = widget.initialPrompt!;
+      _sendMessage();
+    } else {
+      // Otherwise, show the default greeting
+      _messages.add(
+        ChatMessage(
+          text: 'Hello! How can I help you with your nutrition today?',
+          isUser: false,
+        ),
+      );
+    }
   }
 
   Future<void> _sendMessage() async {
@@ -49,13 +53,20 @@ class _ChatScreenState extends State<ChatScreen> {
     _controller.clear();
 
     try {
-      // Call the new API method
-      final result = await apiService.chat(widget.userId, text);
+      final result = await apiService.chat(text);
       final aiResponse = result['response'] ?? 'Sorry, I encountered an error.';
 
       setState(() {
         _messages.add(ChatMessage(text: aiResponse, isUser: false));
       });
+    } on TimeoutException {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'The server is taking too long to respond. Please try again later.',
+          ),
+        ),
+      );
     } catch (e) {
       ScaffoldMessenger.of(
         context,

@@ -8,6 +8,7 @@ class MealCard extends StatelessWidget {
   final String recommendation;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? onChat;
 
   const MealCard({
     super.key,
@@ -18,6 +19,7 @@ class MealCard extends StatelessWidget {
     required this.recommendation,
     this.onEdit,
     this.onDelete,
+    this.onChat,
   });
 
   @override
@@ -45,9 +47,15 @@ class MealCard extends StatelessWidget {
                 onEdit?.call();
               } else if (value == 'delete') {
                 onDelete?.call();
+              } else if (value == 'chat') {
+                onChat?.call();
               }
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'chat',
+                child: Text('Chat about this food'),
+              ),
               const PopupMenuItem<String>(
                 value: 'edit',
                 child: Text('Edit'),

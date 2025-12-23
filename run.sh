@@ -13,6 +13,7 @@ fi
 # Activate virtual environment
 echo "Activating virtual environment..."
 source venv/bin/activate  # On Windows: venv\Scripts\activate
+export PYTHONPATH="$(pwd)/venv/Lib/site-packages:$PYTHONPATH"
 
 # Install dependencies
 echo "Installing dependencies..."
@@ -56,5 +57,5 @@ echo
 echo "Press Ctrl+C to stop the server"
 echo
 
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+$(pwd)/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 

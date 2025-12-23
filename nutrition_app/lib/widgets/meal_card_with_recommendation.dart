@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:nutrition_app/models/log.dart';
-import 'package:nutrition_app/services/api_client.dart';
+import 'package:nutrition_app/main.dart';
 import 'meal_card.dart';
 
 class MealCardWithRecommendation extends StatefulWidget {
   final DailyLogModel log;
-  final int userId;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? onChat;
 
   const MealCardWithRecommendation({
     super.key,
     required this.log,
-    required this.userId,
     this.onEdit,
     this.onDelete,
+    this.onChat,
   });
 
   @override
@@ -43,7 +43,7 @@ class _MealCardWithRecommendationState extends State<MealCardWithRecommendation>
 
     try {
       print('🔍 Starting food classification for: ${widget.log.food!.name}');
-      final result = await apiService.classifyFood(widget.userId, widget.log.food!.name);
+      final result = await apiService.classifyFood(widget.log.food!.name);
       
       print('🔍 API Response: $result');
       
@@ -98,6 +98,7 @@ class _MealCardWithRecommendationState extends State<MealCardWithRecommendation>
       recommendation: _recommendation,
       onDelete: widget.onDelete, // Pass the callback through
       onEdit: widget.onEdit,     // Pass the callback through
+      onChat: widget.onChat,   // Pass the new callback
     );
   }
 }

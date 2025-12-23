@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:nutrition_app/models/goal.dart';
 import 'package:nutrition_app/models/profile.dart';
-import 'package:nutrition_app/screens/create_profile_screen.dart';
 import 'package:nutrition_app/screens/edit_profile_screen.dart';
+import 'package:nutrition_app/screens/login_screen.dart';
 import 'package:nutrition_app/screens/set_goals_screen.dart';
-import 'package:nutrition_app/services/api_client.dart';
+import 'package:nutrition_app/main.dart';
 
 class ProfileScreen extends StatefulWidget {
-  final int userId;
-  const ProfileScreen({super.key, required this.userId});
+  const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -24,13 +23,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<Map<String, dynamic>> _getData() async {
-    final userProfileData = await apiService.getProfileById(widget.userId);
+    final userProfileData = await apiService.getProfile();
     final userProfile = UserProfileModel.fromJson(userProfileData);
     List<Goal> goals = [];
     try {
-      goals = await apiService.getGoals(widget.userId);
+      goals = await apiService.getGoals();
     } catch (e) {
-      // Handle the case where the user has no goals
       if (e.toString().contains('404')) {
         goals = [];
       } else {
@@ -38,9 +36,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
     return {
-      'profiles': [userProfile],
+      'profile': userProfile,
       'goals': goals,
     };
+  }
+
+  Future<void> _logout() async {
+    await apiService.logout();
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (Route<dynamic> route) => false,
+    );
   }
 
   @override
@@ -48,6 +54,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+          ),
+        ],
       ),
       body: FutureBuilder<Map<String, dynamic>>(
         future: _dataFuture,
@@ -58,27 +70,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return Center(child: Text('Error: ${snapshot.error}'));
           } else if (snapshot.hasData) {
             final data = snapshot.data!;
-            final profiles = data['profiles'] as List<UserProfileModel>;
+            final userProfile = data['profile'] as UserProfileModel?;
             final goals = data['goals'] as List<Goal>;
-            final userProfile = profiles.isNotEmpty ? profiles.first : null;
             final nutritionGoals = goals.isNotEmpty ? goals.first : null;
 
             if (userProfile == null) {
-              return Center(
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final result = await Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => CreateProfileScreen()),
-                    );
-                    if (result == true) {
-                      setState(() {
-                        _dataFuture = _getData();
-                      });
-                    }
-                  },
-                  child: const Text('Create Profile'),
-                ),
-              );
+              return const Center(child: Text('Could not load profile.'));
             }
 
             return SingleChildScrollView(
@@ -144,7 +141,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onPressed: () async {
                       final result = await Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => SetGoalsScreen(userId: widget.userId),
+                          builder: (_) => SetGoalsScreen(),
                         ),
                       );
                       if (result == true) {
