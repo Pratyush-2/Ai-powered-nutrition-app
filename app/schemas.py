@@ -17,6 +17,7 @@ class FoodBase(BaseModel):
     protein: float
     carbs: float
     fats: float
+    ingredients_text: Optional[str] = None  # For allergen detection
 
 class FoodCreate(FoodBase):
     pass

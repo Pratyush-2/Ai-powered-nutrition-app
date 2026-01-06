@@ -68,7 +68,7 @@ def _search_openfoodfacts(food_name: str, cache_key: str, current_time: float):
         "action": "process",
         "json": 1,
         "page_size": 5,  # Reduced from 10 for faster response
-        "fields": "product_name,brands,nutriments,serving_size"  # Only what we need
+        "fields": "product_name,brands,nutriments,serving_size,ingredients_text"  # Added ingredients
     }
     
     # SPEED OPTIMIZATION: Try both endpoints in parallel with shorter timeout

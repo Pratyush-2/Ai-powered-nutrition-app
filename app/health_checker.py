@@ -67,9 +67,96 @@ class HealthChecker:
         actual_carbs = food.carbs * multiplier
         actual_fats = food.fats * multiplier
         
+        # PRIORITY 1: Check ingredients list (most accurate)
+        if food.ingredients_text:
+            ingredient_warnings = self._check_ingredients(food.ingredients_text, health_profile)
+            warnings.extend(ingredient_warnings)
+        
+        # PRIORITY 2: Check food name for allergen keywords (fallback)
+        else:
+            name_warnings = self._check_food_name(food.name, health_profile)
+            warnings.extend(name_warnings)
+        
+        # PRIORITY 3: Check nutritional values for health conditions
+        nutrition_warnings = self._check_nutrition(
+            food, health_profile, actual_calories, actual_protein, actual_carbs, actual_fats
+        )
+        warnings.extend(nutrition_warnings)
+        
+        # PRIORITY 4: Check dietary restrictions
+        dietary_warnings = self._check_dietary_restrictions(food.name, health_profile)
+        warnings.extend(dietary_warnings)
+        
+        return warnings
+    
+    def _check_ingredients(
+        self, 
+        ingredients_text: str, 
+        health_profile: models.UserHealthProfile
+    ) -> List[schemas.HealthWarning]:
+        """Check ingredient list for allergens and intolerances"""
+        warnings = []
+        ingredients_lower = ingredients_text.lower()
+        
         # Check allergies (CRITICAL)
         for allergy in health_profile.allergies:
-            if self._contains_allergen(food.name, allergy):
+            if self._contains_allergen(ingredients_lower, allergy):
+                warnings.append(schemas.HealthWarning(
+                    type="allergy",
+                    severity="critical",
+                    message=f"⚠️ ALLERGY ALERT: Ingredients contain {allergy}!",
+                    icon="🚨"
+                ))
+        
+        # Check lactose intolerance
+        if health_profile.lactose_intolerant:
+            dairy_keywords = ["milk", "cream", "cheese", "butter", "whey", "lactose", "casein"]
+            if any(keyword in ingredients_lower for keyword in dairy_keywords):
+                warnings.append(schemas.HealthWarning(
+                    type="intolerance",
+                    severity="warning",
+                    message="Contains dairy/lactose (found in ingredients)",
+                    icon="⚠️"
+                ))
+        
+        # Check gluten intolerance
+        if health_profile.gluten_intolerant or health_profile.has_celiac:
+            gluten_keywords = ["wheat", "barley", "rye", "gluten", "flour"]
+            if any(keyword in ingredients_lower for keyword in gluten_keywords):
+                severity = "critical" if health_profile.has_celiac else "warning"
+                message = "Contains gluten (found in ingredients)"
+                if health_profile.has_celiac:
+                    message += " - CELIAC ALERT!"
+                warnings.append(schemas.HealthWarning(
+                    type="intolerance" if not health_profile.has_celiac else "allergy",
+                    severity=severity,
+                    message=message,
+                    icon="🚨" if health_profile.has_celiac else "⚠️"
+                ))
+        
+        # Check custom intolerances
+        for intolerance in health_profile.intolerances:
+            if self._contains_allergen(ingredients_lower, intolerance):
+                warnings.append(schemas.HealthWarning(
+                    type="intolerance",
+                    severity="warning",
+                    message=f"Ingredients may contain {intolerance}",
+                    icon="⚠️"
+                ))
+        
+        return warnings
+    
+    def _check_food_name(
+        self,
+        food_name: str,
+        health_profile: models.UserHealthProfile
+    ) -> List[schemas.HealthWarning]:
+        """Fallback: Check food name for allergen keywords"""
+        warnings = []
+        
+        # Check allergies
+        for allergy in health_profile.allergies:
+            if self._contains_allergen(food_name, allergy):
                 warnings.append(schemas.HealthWarning(
                     type="allergy",
                     severity="critical",
@@ -79,7 +166,7 @@ class HealthChecker:
         
         # Check lactose intolerance
         if health_profile.lactose_intolerant:
-            if self._contains_allergen(food.name, "dairy"):
+            if self._contains_allergen(food_name, "dairy"):
                 warnings.append(schemas.HealthWarning(
                     type="intolerance",
                     severity="warning",
@@ -89,7 +176,7 @@ class HealthChecker:
         
         # Check gluten intolerance
         if health_profile.gluten_intolerant or health_profile.has_celiac:
-            if self._contains_allergen(food.name, "gluten"):
+            if self._contains_allergen(food_name, "gluten"):
                 severity = "critical" if health_profile.has_celiac else "warning"
                 warnings.append(schemas.HealthWarning(
                     type="intolerance" if not health_profile.has_celiac else "allergy",
@@ -100,13 +187,27 @@ class HealthChecker:
         
         # Check custom intolerances
         for intolerance in health_profile.intolerances:
-            if self._contains_allergen(food.name, intolerance):
+            if self._contains_allergen(food_name, intolerance):
                 warnings.append(schemas.HealthWarning(
                     type="intolerance",
                     severity="warning",
                     message=f"May contain {intolerance}",
                     icon="⚠️"
                 ))
+        
+        return warnings
+    
+    def _check_nutrition(
+        self,
+        food: models.Food,
+        health_profile: models.UserHealthProfile,
+        actual_calories: float,
+        actual_protein: float,
+        actual_carbs: float,
+        actual_fats: float
+    ) -> List[schemas.HealthWarning]:
+        """Check nutritional values against health conditions"""
+        warnings = []
         
         # Check diabetes
         if health_profile.has_diabetes:
@@ -148,9 +249,18 @@ class HealthChecker:
                     icon="🩺"
                 ))
         
-        # Check dietary restrictions
+        return warnings
+    
+    def _check_dietary_restrictions(
+        self,
+        food_name: str,
+        health_profile: models.UserHealthProfile
+    ) -> List[schemas.HealthWarning]:
+        """Check dietary restrictions"""
+        warnings = []
+        
         for restriction in health_profile.dietary_restrictions:
-            if self._violates_dietary_restriction(food.name, restriction):
+            if self._violates_dietary_restriction(food_name, restriction):
                 warnings.append(schemas.HealthWarning(
                     type="dietary",
                     severity="info",
