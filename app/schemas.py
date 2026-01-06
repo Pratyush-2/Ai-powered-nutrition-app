@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, List, Any, Dict
 from pydantic import BaseModel
 
@@ -115,3 +115,58 @@ class NutritionResult(BaseModel):
 
 class ClassifyRequest(BaseModel):
     food_name: str
+
+# ---------- User Health Profile ----------
+class UserHealthProfileBase(BaseModel):
+    # Health Conditions
+    has_diabetes: bool = False
+    diabetes_type: Optional[str] = None
+    has_high_cholesterol: bool = False
+    has_hypertension: bool = False
+    has_heart_disease: bool = False
+    has_kidney_disease: bool = False
+    has_celiac: bool = False
+    
+    # Food Intolerances
+    lactose_intolerant: bool = False
+    gluten_intolerant: bool = False
+    
+    # Custom lists
+    allergies: List[str] = []
+    intolerances: List[str] = []
+    dietary_restrictions: List[str] = []
+    avoid_ingredients: List[str] = []
+
+class UserHealthProfileCreate(UserHealthProfileBase):
+    pass
+
+class UserHealthProfileUpdate(BaseModel):
+    has_diabetes: Optional[bool] = None
+    diabetes_type: Optional[str] = None
+    has_high_cholesterol: Optional[bool] = None
+    has_hypertension: Optional[bool] = None
+    has_heart_disease: Optional[bool] = None
+    has_kidney_disease: Optional[bool] = None
+    has_celiac: Optional[bool] = None
+    lactose_intolerant: Optional[bool] = None
+    gluten_intolerant: Optional[bool] = None
+    allergies: Optional[List[str]] = None
+    intolerances: Optional[List[str]] = None
+    dietary_restrictions: Optional[List[str]] = None
+    avoid_ingredients: Optional[List[str]] = None
+
+class UserHealthProfile(UserHealthProfileBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# ---------- Health Warning ----------
+class HealthWarning(BaseModel):
+    type: str  # "allergy", "intolerance", "health_condition", "dietary"
+    severity: str  # "critical", "warning", "info"
+    message: str
+    icon: str

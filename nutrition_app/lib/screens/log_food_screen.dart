@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:nutrition_app/main.dart';
 import 'package:nutrition_app/models/food.dart';
 import 'package:nutrition_app/models/log.dart';
+import 'package:nutrition_app/models/health_profile.dart';
+import 'package:nutrition_app/widgets/health_warning_dialog.dart';
 import 'dart:developer' as developer;
 
 class LogFoodScreen extends StatefulWidget {
@@ -297,8 +299,22 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
 
     try {
       int? foodId;
+      Food? foodToLog;
+      
       if (_selectedFoodId != null) {
         foodId = _selectedFoodId;
+        // Get food details for warning check
+        foodToLog = _searchResults.firstWhere(
+          (f) => f.id == _selectedFoodId,
+          orElse: () => Food(
+            id: _selectedFoodId,
+            name: _foodNameController.text,
+            calories: double.tryParse(_caloriesController.text) ?? 0.0,
+            protein: double.tryParse(_proteinController.text) ?? 0.0,
+            carbs: double.tryParse(_carbsController.text) ?? 0.0,
+            fats: double.tryParse(_fatsController.text) ?? 0.0,
+          ),
+        );
       } else {
         final newFood = Food(
           name: _foodNameController.text,
@@ -309,9 +325,35 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
         );
         final createdFood = await apiService.createFood(newFood);
         foodId = createdFood.id;
+        foodToLog = createdFood;
       }
 
+      // Check for health warnings
       final quantity = double.tryParse(_quantityController.text) ?? 1.0;
+      if (foodId != null && foodToLog != null) {
+        final warnings = await _checkFoodSafety(foodId, quantity);
+        
+        if (warnings.isNotEmpty) {
+          // Show warning dialog
+          final proceed = await showDialog<bool>(
+            context: context,
+            builder: (context) => HealthWarningDialog(
+              warnings: warnings,
+              foodName: foodToLog!.name,
+              onProceed: () => Navigator.of(context).pop(true),
+              onCancel: () => Navigator.of(context).pop(false),
+            ),
+          );
+          
+          if (proceed != true) {
+            // User cancelled
+            setState(() => _isLoading = false);
+            return;
+          }
+        }
+      }
+
+      // Proceed with logging
       if (_isEditing && widget.editLog != null) {
         final updateData = {
           'quantity': quantity,
@@ -344,6 +386,16 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<List<HealthWarning>> _checkFoodSafety(int foodId, double quantity) async {
+    try {
+      final warningsData = await apiService.checkFoodSafety(foodId, quantity);
+      return warningsData.map((data) => HealthWarning.fromJson(data)).toList();
+    } catch (e) {
+      developer.log('Error checking food safety: $e');
+      return [];
     }
   }
 

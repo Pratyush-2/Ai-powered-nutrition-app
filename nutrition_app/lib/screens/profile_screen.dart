@@ -4,6 +4,7 @@ import 'package:nutrition_app/models/profile.dart';
 import 'package:nutrition_app/screens/edit_profile_screen.dart';
 import 'package:nutrition_app/screens/login_screen.dart';
 import 'package:nutrition_app/screens/set_goals_screen.dart';
+import 'package:nutrition_app/screens/health_profile_screen.dart';
 import 'package:nutrition_app/main.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -154,6 +155,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       }
                     },
                     child: const Text('Set Goals'),
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const HealthProfileScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.health_and_safety),
+                    label: const Text('Health Profile'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red.shade400,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ],
               ),
