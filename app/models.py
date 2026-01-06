@@ -36,6 +36,7 @@ class Food(Base):
     fats = Column(Float)
     barcode = Column(String, nullable=True)
     serving_size = Column(String, nullable=True)
+    ingredients_text = Column(String, nullable=True)  # For allergen detection
 
 # ---------- Daily Logs ----------
 class DailyLog(Base):

@@ -7,6 +7,7 @@ class Food {
   final double carbs;
   final double fats;
   final String? servingSize;
+  final String? ingredientsText;  // For allergen detection
   final bool isLocalData; // Add this field
 
   Food({
@@ -18,6 +19,7 @@ class Food {
     required this.carbs,
     required this.fats,
     this.servingSize,
+    this.ingredientsText,
     this.isLocalData = false, // Default to false
   });
 
@@ -31,6 +33,7 @@ class Food {
       carbs: (json['carbs'] as num).toDouble(),
       fats: (json['fats'] as num).toDouble(),
       servingSize: json['serving_size'] as String?,
+      ingredientsText: json['ingredients_text'] as String?,
       isLocalData: false, // Not applicable for JSON
     );
   }
@@ -106,6 +109,7 @@ class Food {
       carbs: safeConvertToDouble(nutriments['carbohydrates_100g'] ?? nutriments['carbohydrates']),
       fats: safeConvertToDouble(nutriments['fat_100g'] ?? nutriments['fat']),
       servingSize: json['serving_size'] as String? ?? '100g',
+      ingredientsText: json['ingredients_text'] as String?,  // For allergen detection
       // Add source indicator
       isLocalData: json['_local_fallback'] == true,
     );
@@ -124,6 +128,9 @@ class Food {
     }
     if (servingSize != null) {
       data['serving_size'] = servingSize;
+    }
+    if (ingredientsText != null) {
+      data['ingredients_text'] = ingredientsText;
     }
     return data;
   }
