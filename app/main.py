@@ -17,6 +17,8 @@ from .database import get_db, engine, Base
 from app.routers import auth as auth_router
 from app.ai.ai_routes import router as ai_router
 from app.services.food_search import search_food_by_name
+from app import health_crud
+from app.health_checker import health_checker
 from typing import List, Optional
 
 Base.metadata.create_all(bind=engine)
@@ -99,3 +101,59 @@ def search_food(food_name: str, current_user: models.UserProfile = Depends(auth.
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Food search failed: {str(e)}")
 
+# Health Profile
+@app.get("/health-profile/", response_model=schemas.UserHealthProfile)
+def get_health_profile(db: Session = Depends(get_db), current_user: models.UserProfile = Depends(auth.get_current_active_user)):
+    """Get user's health profile"""
+    health_profile = health_crud.get_or_create_health_profile(db, current_user.id)
+    return health_profile
+
+@app.post("/health-profile/", response_model=schemas.UserHealthProfile)
+def create_health_profile_endpoint(
+    health_profile: schemas.UserHealthProfileCreate,
+    db: Session = Depends(get_db),
+    current_user: models.UserProfile = Depends(auth.get_current_active_user)
+):
+    """Create or update user's health profile"""
+    existing = health_crud.get_health_profile(db, current_user.id)
+    
+    if existing:
+        # Update existing
+        return health_crud.update_health_profile(db, current_user.id, schemas.UserHealthProfileUpdate(**health_profile.dict()))
+    else:
+        # Create new
+        return health_crud.create_health_profile(db, health_profile, current_user.id)
+
+@app.put("/health-profile/", response_model=schemas.UserHealthProfile)
+def update_health_profile_endpoint(
+    health_profile: schemas.UserHealthProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.UserProfile = Depends(auth.get_current_active_user)
+):
+    """Update user's health profile"""
+    updated = health_crud.update_health_profile(db, current_user.id, health_profile)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Health profile not found")
+    return updated
+
+# Food Safety Check
+@app.post("/check-food-safety/", response_model=List[schemas.HealthWarning])
+def check_food_safety(
+    food_id: int,
+    quantity: float = 100.0,
+    db: Session = Depends(get_db),
+    current_user: models.UserProfile = Depends(auth.get_current_active_user)
+):
+    """Check if a food is safe for the user based on their health profile"""
+    # Get food
+    food = crud.get_food(db, food_id)
+    if not food:
+        raise HTTPException(status_code=404, detail="Food not found")
+    
+    # Get health profile
+    health_profile = health_crud.get_or_create_health_profile(db, current_user.id)
+    
+    # Check safety
+    warnings = health_checker.check_food_safety(food, health_profile, quantity)
+    
+    return warnings

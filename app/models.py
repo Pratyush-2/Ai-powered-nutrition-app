@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Date, ForeignKey, Boolean, JSON, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime
 from .database import Base
 
 # ---------- User Profiles ----------
@@ -55,3 +56,32 @@ class UserGoal(Base):
     protein_goal = Column(Float)
     carbs_goal = Column(Float)
     fats_goal = Column(Float)
+
+# ---------- User Health Profile ----------
+class UserHealthProfile(Base):
+    __tablename__ = "user_health_profiles"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("user_profiles.id"), unique=True)
+    
+    # Health Conditions
+    has_diabetes = Column(Boolean, default=False)
+    diabetes_type = Column(String, nullable=True)  # "type1", "type2", "gestational"
+    has_high_cholesterol = Column(Boolean, default=False)
+    has_hypertension = Column(Boolean, default=False)
+    has_heart_disease = Column(Boolean, default=False)
+    has_kidney_disease = Column(Boolean, default=False)
+    has_celiac = Column(Boolean, default=False)
+    
+    # Food Intolerances/Allergies
+    lactose_intolerant = Column(Boolean, default=False)
+    gluten_intolerant = Column(Boolean, default=False)
+    
+    # Custom lists (stored as JSON)
+    allergies = Column(JSON, default=list)  # ["peanuts", "shellfish", "eggs"]
+    intolerances = Column(JSON, default=list)  # ["soy", "nightshades"]
+    dietary_restrictions = Column(JSON, default=list)  # ["vegetarian", "vegan", "halal", "kosher"]
+    avoid_ingredients = Column(JSON, default=list)  # ["artificial sweeteners", "MSG"]
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

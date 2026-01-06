@@ -198,6 +198,7 @@ class ApiService {
     return _handleResponse(response);
   }
 
+
   Future<Map<String, dynamic>> updateLog(
     int logId,
     Map<String, dynamic> logData,
@@ -209,5 +210,53 @@ class ApiService {
       body: jsonEncode(logData),
     );
     return _handleResponse(response);
+  }
+
+  // Health Profile
+  Future<Map<String, dynamic>> getHealthProfile() async {
+    final uri = Uri.parse('$baseUrl/health-profile/');
+    final response = await http.get(uri, headers: await _getAuthHeaders());
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> createHealthProfile(
+    Map<String, dynamic> profileData,
+  ) async {
+    final uri = Uri.parse('$baseUrl/health-profile/');
+    final response = await http.post(
+      uri,
+      headers: await _getAuthHeaders(),
+      body: jsonEncode(profileData),
+    );
+    return _handleResponse(response);
+  }
+
+  Future<Map<String, dynamic>> updateHealthProfile(
+    Map<String, dynamic> profileData,
+  ) async {
+    final uri = Uri.parse('$baseUrl/health-profile/');
+    final response = await http.put(
+      uri,
+      headers: await _getAuthHeaders(),
+      body: jsonEncode(profileData),
+    );
+    return _handleResponse(response);
+  }
+
+  Future<List<Map<String, dynamic>>> checkFoodSafety(
+    int foodId,
+    double quantity,
+  ) async {
+    final uri = Uri.parse('$baseUrl/check-food-safety/');
+    final response = await http.post(
+      uri,
+      headers: await _getAuthHeaders(),
+      body: jsonEncode({
+        'food_id': foodId,
+        'quantity': quantity,
+      }),
+    );
+    final data = _handleResponse(response);
+    return (data as List<dynamic>).map((e) => e as Map<String, dynamic>).toList();
   }
 }
