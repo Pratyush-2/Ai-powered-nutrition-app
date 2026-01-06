@@ -139,14 +139,13 @@ def update_health_profile_endpoint(
 # Food Safety Check
 @app.post("/check-food-safety/", response_model=List[schemas.HealthWarning])
 def check_food_safety(
-    food_id: int,
-    quantity: float = 100.0,
+    request: schemas.FoodSafetyCheckRequest,
     db: Session = Depends(get_db),
     current_user: models.UserProfile = Depends(auth.get_current_active_user)
 ):
     """Check if a food is safe for the user based on their health profile"""
     # Get food
-    food = crud.get_food(db, food_id)
+    food = crud.get_food(db, request.food_id)
     if not food:
         raise HTTPException(status_code=404, detail="Food not found")
     
@@ -154,6 +153,6 @@ def check_food_safety(
     health_profile = health_crud.get_or_create_health_profile(db, current_user.id)
     
     # Check safety
-    warnings = health_checker.check_food_safety(food, health_profile, quantity)
+    warnings = health_checker.check_food_safety(food, health_profile, request.quantity)
     
     return warnings

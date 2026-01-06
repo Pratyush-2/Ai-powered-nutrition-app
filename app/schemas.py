@@ -170,3 +170,8 @@ class HealthWarning(BaseModel):
     severity: str  # "critical", "warning", "info"
     message: str
     icon: str
+
+# ---------- Food Safety Check Request ----------
+class FoodSafetyCheckRequest(BaseModel):
+    food_id: int
+    quantity: float = 100.0

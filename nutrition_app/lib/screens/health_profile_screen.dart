@@ -9,7 +9,7 @@ class HealthProfileScreen extends StatefulWidget {
   State<HealthProfileScreen> createState() => _HealthProfileScreenState();
 }
 
-class _HealthProfileState extends State<HealthProfileScreen> {
+class _HealthProfileScreenState extends State<HealthProfileScreen> {
   bool _isLoading = true;
   HealthProfile? _healthProfile;
   

@@ -330,10 +330,15 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
 
       // Check for health warnings
       final quantity = double.tryParse(_quantityController.text) ?? 1.0;
+      developer.log('📋 About to check warnings - foodId: $foodId, quantity: $quantity, foodToLog: ${foodToLog?.name}');
+      
       if (foodId != null && foodToLog != null) {
+        developer.log('✅ Calling _checkFoodSafety...');
         final warnings = await _checkFoodSafety(foodId, quantity);
+        developer.log('📊 Received ${warnings.length} warnings');
         
         if (warnings.isNotEmpty) {
+          developer.log('⚠️ Showing warning dialog with ${warnings.length} warnings');
           // Show warning dialog
           final proceed = await showDialog<bool>(
             context: context,
@@ -347,10 +352,16 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
           
           if (proceed != true) {
             // User cancelled
+            developer.log('❌ User cancelled logging due to warnings');
             setState(() => _isLoading = false);
             return;
           }
+          developer.log('✅ User proceeded despite warnings');
+        } else {
+          developer.log('✅ No warnings found, proceeding with logging');
         }
+      } else {
+        developer.log('⚠️ Skipping warning check - foodId: $foodId, foodToLog: ${foodToLog?.name}');
       }
 
       // Proceed with logging
@@ -391,10 +402,17 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
 
   Future<List<HealthWarning>> _checkFoodSafety(int foodId, double quantity) async {
     try {
+      developer.log('🔍 Checking food safety for foodId: $foodId, quantity: $quantity');
       final warningsData = await apiService.checkFoodSafety(foodId, quantity);
-      return warningsData.map((data) => HealthWarning.fromJson(data)).toList();
-    } catch (e) {
-      developer.log('Error checking food safety: $e');
+      developer.log('✅ Got ${warningsData.length} warnings from API');
+      final warnings = warningsData.map((data) => HealthWarning.fromJson(data)).toList();
+      for (var warning in warnings) {
+        developer.log('⚠️ Warning: ${warning.message} (${warning.severity})');
+      }
+      return warnings;
+    } catch (e, stackTrace) {
+      developer.log('❌ Error checking food safety: $e');
+      developer.log('Stack trace: $stackTrace');
       return [];
     }
   }
