@@ -406,23 +406,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
                     final logs = snapshot.data!;
                     
-                    // Calculate daily totals
-                    double totalCalories = 0;
-                    double totalProtein = 0;
-                    double totalCarbs = 0;
-                    double totalFats = 0;
-                    
-                    for (final log in logs) {
-                      final food = log.food;
-                      if (food != null) {
-                        final multiplier = log.quantity / 100;
-                        totalCalories += food.calories * multiplier;
-                        totalProtein += food.protein * multiplier;
-                        totalCarbs += food.carbs * multiplier;
-                        totalFats += food.fats * multiplier;
-                      }
-                    }
-                    
                     return Column(
                       children: [
                         Expanded(
@@ -441,46 +424,72 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             },
                           ),
                         ),
-                        // Daily Totals Summary
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: theme.colorScheme.primary.withOpacity(0.3),
-                              width: 1,
-                            ),
+                        // Daily Totals Summary - Fetch from backend
+                        FutureBuilder<Map<String, dynamic>>(
+                          future: apiService.getTotals(
+                            DateFormat('yyyy-MM-dd').format(_selectedDate),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildTotalItem(
-                                '🔥',
-                                totalCalories.toStringAsFixed(0),
-                                'kcal',
-                                theme,
+                          builder: (context, totalsSnapshot) {
+                            if (totalsSnapshot.connectionState == ConnectionState.waiting) {
+                              return Container(
+                                padding: const EdgeInsets.all(12),
+                                child: const Center(
+                                  child: SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                ),
+                              );
+                            }
+                            
+                            final totals = totalsSnapshot.data ?? {};
+                            final totalCalories = (totals['calories'] ?? 0.0) as double;
+                            final totalProtein = (totals['protein'] ?? 0.0) as double;
+                            final totalCarbs = (totals['carbs'] ?? 0.0) as double;
+                            final totalFats = (totals['fats'] ?? 0.0) as double;
+                            
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: theme.colorScheme.primary.withOpacity(0.3),
+                                  width: 1,
+                                ),
                               ),
-                              _buildTotalItem(
-                                '🥩',
-                                totalProtein.toStringAsFixed(1),
-                                'P',
-                                theme,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  _buildTotalItem(
+                                    '🔥',
+                                    totalCalories.toStringAsFixed(0),
+                                    'kcal',
+                                    theme,
+                                  ),
+                                  _buildTotalItem(
+                                    '🥩',
+                                    totalProtein.toStringAsFixed(1),
+                                    'P',
+                                    theme,
+                                  ),
+                                  _buildTotalItem(
+                                    '🍞',
+                                    totalCarbs.toStringAsFixed(1),
+                                    'C',
+                                    theme,
+                                  ),
+                                  _buildTotalItem(
+                                    '🧈',
+                                    totalFats.toStringAsFixed(1),
+                                    'F',
+                                    theme,
+                                  ),
+                                ],
                               ),
-                              _buildTotalItem(
-                                '🍞',
-                                totalCarbs.toStringAsFixed(1),
-                                'C',
-                                theme,
-                              ),
-                              _buildTotalItem(
-                                '🧈',
-                                totalFats.toStringAsFixed(1),
-                                'F',
-                                theme,
-                              ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
                       ],
                     );
@@ -549,7 +558,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     if (confirmed == true) {
       try {
-        await apiService.deleteLog(log.id);
+        await apiService.deleteLog(log.id.toString());
         _fetchLogs(); // Refresh
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
