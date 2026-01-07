@@ -114,39 +114,60 @@ def _search_openfoodfacts(food_name: str, cache_key: str, current_time: float, t
                 products = data.get("products", [])
                 scored_products = []
                 search_lower = food_name.lower().strip()
+                search_words = search_lower.split()
                 
                 for product in products:
+                    # FILTER 1: English only
+                    lang = product.get("lang", "")
+                    if lang and lang != "en":
+                        continue  # Skip non-English products
+                    
                     product_name = product.get("product_name", "").lower().strip()
                     if not product_name:
                         continue
+                    
+                    # FILTER 2: Must contain at least one search word
+                    if not any(word in product_name for word in search_words):
+                        continue
                         
-                    # Calculate relevance score
+                    # Calculate relevance score with improved logic
                     score = 0
+                    product_words = product_name.split()
                     
-                    # Exact match = highest score
+                    # EXACT MATCH - highest priority
                     if product_name == search_lower:
-                        score = 100
-                    # Starts with search term
-                    elif product_name.startswith(search_lower):
-                        score = 80
-                    # Contains search term as whole word
-                    elif f" {search_lower} " in f" {product_name} ":
-                        score = 60
-                    # Contains search term anywhere
-                    elif search_lower in product_name:
-                        score = 40
-                    # Partial word matches
-                    else:
-                        words = search_lower.split()
-                        matches = sum(1 for word in words if word in product_name)
-                        if matches > 0:
-                            score = 20 + (matches * 5)
+                        score = 1000
+                    # STARTS WITH - very high priority
+                    elif product_name.startswith(search_lower + " ") or product_name.startswith(search_lower):
+                        # Penalize if product has many extra words (e.g., "rice krispies")
+                        extra_words = len(product_words) - len(search_words)
+                        score = 500 - (extra_words * 100)  # Heavy penalty for extra words
+                    # SEARCH TERM IS COMPLETE WORD in product
+                    elif search_lower in product_words:
+                        # Simple product (few words) = higher score
+                        if len(product_words) <= 2:
+                            score = 400
                         else:
-                            score = 10
+                            score = 200  # Compound product
+                    # CONTAINS AS WHOLE WORD
+                    elif f" {search_lower} " in f" {product_name} ":
+                        score = 150 - (len(product_words) * 20)
+                    # CONTAINS ANYWHERE
+                    elif search_lower in product_name:
+                        score = 100 - (len(product_words) * 30)
+                    # PARTIAL MATCHES
+                    else:
+                        matching_words = sum(1 for word in search_words if word in product_name)
+                        score = 50 + (matching_words * 10) - (len(product_words) * 10)
                     
-                    # Boost score for common food items
-                    if any(term in product_name for term in ['rice', 'chicken', 'beef', 'fish', 'eggs', 'milk', 'bread', 'pasta']):
-                        score += 5
+                    # PENALTY for compound/processed foods
+                    compound_indicators = ['with', 'and', '&', 'flavored', 'flavoured', 'style', 'mix', 'blend', 'cereal']
+                    if any(indicator in product_name for indicator in compound_indicators):
+                        if len(search_words) == 1:  # User searched for simple term
+                            score = score * 0.2  # Reduce score to 20%
+                    
+                    # Ensure score is not negative
+                    score = max(score, 0)
                     
                     # Ensure serving_size exists
                     product["serving_size"] = product.get("serving_size", "100g")
