@@ -120,27 +120,28 @@ def _search_openfoodfacts(food_name: str, cache_key: str, current_time: float, t
                     if not product_name:
                         continue
                         
-                    # Simple but effective scoring
+                    # HEAVILY favor exact matches and short names
                     score = 0
+                    word_count = len(product_name.split())
                     
-                    # Exact match
+                    # Exact match - ABSOLUTE PRIORITY
                     if product_name == search_lower:
-                        score = 1000
-                    # Starts with search (but penalize long names)
+                        score = 10000  # Massively higher than anything else
+                    # Starts with search
                     elif product_name.startswith(search_lower):
-                        word_count = len(product_name.split())
-                        score = 500 - (word_count * 50)  # Fewer words = higher score
+                        # HEAVILY penalize extra words
+                        score = 1000 - (word_count * 200)  # Each extra word costs 200 points
                     # Contains as whole word
                     elif f" {search_lower} " in f" {product_name} ":
-                        score = 300
+                        score = 500 - (word_count * 100)
                     # Contains anywhere
                     elif search_lower in product_name:
-                        score = 200
+                        score = 300 - (word_count * 50)
                     else:
                         # Partial match
                         words = search_lower.split()
                         matches = sum(1 for word in words if word in product_name)
-                        score = matches * 50
+                        score = matches * 50 - (word_count * 25)
                     
                     # Ensure serving_size exists
                     product["serving_size"] = product.get("serving_size", "100g")
