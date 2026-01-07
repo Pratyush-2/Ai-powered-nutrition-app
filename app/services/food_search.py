@@ -8,45 +8,48 @@ _CACHE_DURATION = 86400  # 24 hours for aggressive caching
 
 def search_food_by_name(food_name: str):
     """
-    Searches for food with aggressive caching for speed and consistency.
-    Strategy: Consistent results, cached for 24 hours
+    Search strategy: OpenFoodFacts ONLY, with local DB as 15-second timeout fallback
     """
     
     cache_key = food_name.lower().strip()
     current_time = time.time()
     
-    # CONSISTENCY FIX: Check cache with 24-hour TTL
+    # Check cache first
     if cache_key in _cache:
         cached_data, timestamp = _cache[cache_key]
         age = current_time - timestamp
         
-        # Return cached data if less than 24 hours old
         if age < _CACHE_DURATION:
             print(f"✅ Returning cached results for '{food_name}' (age: {int(age/60)} minutes)")
             return cached_data
     
-    # SPEED OPTIMIZATION: Try local DB first for instant results
-    print(f"🔍 Checking local database for '{food_name}'...")
+    # PRIMARY: Try OpenFoodFacts with 15-second timeout
+    print(f"🔍 Searching OpenFoodFacts for '{food_name}' (15s timeout)...")
+    try:
+        result = _search_openfoodfacts(food_name, cache_key, current_time, timeout=15.0)
+        
+        if result.get("products"):
+            print(f"✅ Found {len(result['products'])} results from OpenFoodFacts")
+            return result
+        else:
+            print(f"⚠️ OpenFoodFacts returned no results for '{food_name}'")
+    
+    except Exception as e:
+        print(f"⚠️ OpenFoodFacts failed: {e}")
+    
+    # FALLBACK: Only use local DB if OpenFoodFacts failed/timed out
+    print(f"🔄 Falling back to local database for '{food_name}'...")
     local_result = _search_local_database(food_name, cache_key, current_time)
     
     if local_result.get("products"):
-        print(f"✅ Found {len(local_result['products'])} results in local database (instant!)")
-        # Cache local results
-        _cache[cache_key] = (local_result, current_time)
+        print(f"✅ Found {len(local_result['products'])} results in local database (fallback)")
         return local_result
-    
-    # Not in local DB, try OpenFoodFacts (with optimizations)
-    print(f"🔍 Searching OpenFoodFacts for '{food_name}'...")
-    result = _search_openfoodfacts(food_name, cache_key, current_time)
-    
-    if result.get("products"):
-        return result
     
     # No results found anywhere
     print(f"❌ No results found for '{food_name}'")
     return {"products": []}
 
-def _search_openfoodfacts(food_name: str, cache_key: str, current_time: float):
+def _search_openfoodfacts(food_name: str, cache_key: str, current_time: float, timeout: float = 15.0):
     """Search OpenFoodFacts API with improved speed and reliability"""
     
     # SPEED OPTIMIZATION: Use both endpoints in parallel
@@ -71,11 +74,11 @@ def _search_openfoodfacts(food_name: str, cache_key: str, current_time: float):
         "fields": "product_name,brands,nutriments,serving_size,ingredients_text"  # Added ingredients
     }
     
-    # SPEED OPTIMIZATION: Try both endpoints in parallel with shorter timeout
+    # Try both endpoints in parallel with configurable timeout
     import concurrent.futures
     
     def try_endpoint(url):
-        """Try a single endpoint with optimized settings"""
+        """Try a single endpoint with configurable timeout"""
         try:
             session = requests.Session()
             session.headers.update(headers)
@@ -83,7 +86,7 @@ def _search_openfoodfacts(food_name: str, cache_key: str, current_time: float):
             response = session.get(
                 url, 
                 params=params, 
-                timeout=3,  # REDUCED from 8s to 3s for speed
+                timeout=timeout,  # Use configurable timeout (15s)
                 allow_redirects=True
             )
             
