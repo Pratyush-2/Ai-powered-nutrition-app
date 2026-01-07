@@ -92,6 +92,31 @@ class NutritionEngine:
         fat = safe_float(food_features.get('fat'))
         sugar = safe_float(food_features.get('sugar'))
         carbs = safe_float(food_features.get('carbohydrates'))
+        fiber = safe_float(food_features.get('fiber'), 0.0)
+        
+        # --- DATA QUALITY CHECK & ESTIMATION ---
+        # Many API products have missing fields (0.0). We should estimate based on name if possible.
+        food_name = str(food_features.get('food_name', '')).lower()
+        
+        if food_name:
+            # 1. Estimate Hidden Sugar (if 0 but name implies sweets)
+            if sugar < 1.0:
+                sweets_keywords = [
+                    'cake', 'cookie', 'candy', 'chocolate', 'syrup', 'soda', 'donut', 'doughnut', 
+                    'brownie', 'ice cream', 'dessert', 'pie', 'sweet', 'gateau', 'torte', 'pastry', 
+                    'muffin', 'cupcake', 'biscuit', 'wafer', 'pudding', 'fudge', 'toffee'
+                ]
+                if any(k in food_name for k in sweets_keywords):
+                    sugar = 25.0  # Assume high sugar
+                    # Adjust calories if they seem too low for a sweet
+                    if calories < 100: 
+                        calories = 350.0 
+            
+            # 2. Estimate Fiber (if 0 but name implies plants)
+            if fiber < 0.5:
+                fiber_keywords = ['fruit', 'apple', 'orange', 'banana', 'vegetable', 'bean', 'lentil', 'oat', 'whole grain']
+                if any(k in food_name for k in fiber_keywords):
+                    fiber = 3.0   # Assume moderate fiber
         
         # Extract user data with safe conversion
         age = int(user_features.get('age', 30))
@@ -132,20 +157,73 @@ class NutritionEngine:
             carb_score * goal_weights["carbs_weight"]
         )
         
+        # --- ADVANCED OPTIMIZATIONS ---
+        
+        # 1. JUNK FOOD PENALTY (Fix "Cake is recommended")
+        # High sugar + Low protein = Empty calories
+        junk_penalty = 0
+        if sugar > 15 and protein < 5:
+            junk_penalty = 40  # Massive penalty
+        elif sugar > 10 and protein < 8:
+            junk_penalty = 20
+        
+        # 2. HEALTHY FAT RECOGNITION (Fix "Butter is bad")
+        # High fat + Low sugar + Low carbs = Pure Fat Source (Butter, Oil, Nuts)
+        # Should not be penalized if user can afford calories
+        healthy_fat_bonus = 0
+        if fat > 15 and sugar < 5 and carbs < 10:
+            # If goal is NOT weight loss, reward this
+            if primary_goal != "weight_loss":
+                healthy_fat_bonus = 30
+            else:
+                # Even for weight loss, don't penalize as heavily as junk
+                healthy_fat_bonus = 10
+        
+        # 3. HIGH FIBER BONUS
+        # Encourages whole foods
+        # fiber variable is already extracted and potentially estimated above
+        fiber_bonus = min(20, fiber * 3) # Up to 20 pts bonus
+        
         # Age and BMI adjustments
         age_adjustment = self._calculate_age_adjustment(age, protein, fat, sugar)
         bmi_adjustment = self._calculate_bmi_adjustment(bmi, calories, fat)
         
-        final_score = min(100, max(0, weighted_score + age_adjustment + bmi_adjustment))
+        # Final Score Calculation
+        # Base Weighted Score - Junk Penalty + Fat Bonus + Fiber Bonus
+        final_score = weighted_score - junk_penalty + healthy_fat_bonus + fiber_bonus + age_adjustment + bmi_adjustment
         
-        # Generate recommendation - lower threshold for better UX
-        is_recommended = final_score >= 45  # Changed from 60 to 45
+        final_score = min(100, max(0, final_score))
         
-        # Build detailed reasoning
-        reasoning = self._build_reasoning(
-            protein_score, calorie_score, sugar_score, fat_score, carb_score,
-            primary_goal, age, activity_level, final_score
-        )
+        # --- HARD VETO RULES (Override Score) ---
+        veto_reason = None
+        
+        # 1. Sugar Veto (Unless it's fruit/high fiber)
+        if sugar > 20 and fiber < 3:
+            veto_reason = "Excessive sugar content"
+            
+        # 2. Junk Veto (High Sugar, Low Nutrient)
+        if sugar > 15 and protein < 5:
+            veto_reason = "High sugar with low nutritional value (Empty Calories)"
+            
+        # 3. Name Veto (Safety catch for missing data that was estimated)
+        if "cake" in food_name or "candy" in food_name or "soda" in food_name:
+            if sugar > 10: # If we confirmed/estimated it has sugar
+                veto_reason = "Classified as dessert/sugary treat"
+
+        # Generate recommendation
+        if veto_reason:
+            is_recommended = False
+            # Force score down if it was high
+            final_score = min(final_score, 40)
+            reasoning = f"Not recommended: {veto_reason}. (Score capped at {final_score:.0f})"
+        else:
+            is_recommended = final_score >= 50
+            # Build detailed reasoning
+            reasoning = self._build_reasoning(
+                protein_score, calorie_score, sugar_score, fat_score, carb_score,
+                primary_goal, age, activity_level, final_score, 
+                junk_penalty > 0, healthy_fat_bonus > 0
+            )
         
         return {
             "score": round(final_score, 1),
@@ -302,9 +380,16 @@ class NutritionEngine:
     
     def _build_reasoning(self, protein_score: float, calorie_score: float, sugar_score: float, 
                         fat_score: float, carb_score: float, goal: str, age: int, 
-                        activity_level: int, final_score: float) -> str:
+                        activity_level: int, final_score: float, is_junk: bool = False, is_healthy_fat: bool = False) -> str:
         """Build natural language reasoning"""
         reasons = []
+        
+        # Priority Flags (New Recommendations)
+        if is_junk:
+            return f"Not recommended: This food is classified as junk food due to high sugar and low protein."
+            
+        if is_healthy_fat:
+            return f"Recommended as a source of healthy fats/energy ({final_score:.0f}/100), good for {goal.replace('_', ' ')}."
         
         # Primary factors
         if protein_score >= 80:

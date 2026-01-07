@@ -55,7 +55,15 @@ def classify_food_endpoint(request: ClassifyRequest, db: Session = Depends(get_d
         product = food_data["products"][0]
         nutriments = product.get("nutriments", {})
 
-        food_features = {"calories": nutriments.get("energy-kcal_100g", 0), "protein": nutriments.get("proteins_100g", 0), "fat": nutriments.get("fat_100g", 0), "sugar": nutriments.get("sugars_100g", 0), "carbohydrates": nutriments.get("carbohydrates_100g", 0)}
+        food_features = {
+            "food_name": request.food_name, 
+            "calories": nutriments.get("energy-kcal_100g", 0), 
+            "protein": nutriments.get("proteins_100g", 0), 
+            "fat": nutriments.get("fat_100g", 0), 
+            "sugar": nutriments.get("sugars_100g", 0), 
+            "carbohydrates": nutriments.get("carbohydrates_100g", 0),
+            "fiber": nutriments.get("fiber_100g", 0)
+        }
         
         user_features = {"age": user_profile.age, "bmi": user_profile.weight_kg / ((user_profile.height_cm / 100) ** 2), "activity_level": ACTIVITY_LEVEL_MAPPING.get(user_profile.activity_level.lower(), 1)}
 
@@ -73,7 +81,7 @@ def classify_food_endpoint(request: ClassifyRequest, db: Session = Depends(get_d
 @router.post("/chat/")
 async def chat_endpoint(request: ChatRequest, db: Session = Depends(get_db), current_user: models.UserProfile = Depends(auth.get_current_active_user)):
     from app.ai.llm_integration import chat_with_ai
-    response = await chat_with_ai(db, current_user.id, request.query)
+    response = await chat_with_ai(db, current_user.id, request.query, request.context)
     return {"response": response}
 
 @router.post("/identify-food/")
