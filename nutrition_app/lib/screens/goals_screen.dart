@@ -21,6 +21,9 @@ class _GoalsScreenState extends State<GoalsScreen> {
   
   // Chart selection
   String _selectedMetric = 'calories'; // calories, protein, carbs, fats
+  
+  // Week navigation
+  int _weekOffset = 0; // 0 = current week, 1 = previous week, etc.
 
   @override
   void initState() {
@@ -31,16 +34,47 @@ class _GoalsScreenState extends State<GoalsScreen> {
   void _fetch() {
     setState(() {
       _goalsFuture = apiService.getGoals();
-      _weekDataFuture = _fetchWeekData();
+      _weekDataFuture = _fetchWeekData(_weekOffset);
     });
   }
+  
+  void _goToPreviousWeek() {
+    setState(() {
+      _weekOffset++;
+      _weekDataFuture = _fetchWeekData(_weekOffset);
+    });
+  }
+  
+  void _goToNextWeek() {
+    if (_weekOffset > 0) {
+      setState(() {
+        _weekOffset--;
+        _weekDataFuture = _fetchWeekData(_weekOffset);
+      });
+    }
+  }
+  
+  String _getWeekRangeText() {
+    final now = DateTime.now();
+    final weekStart = now.subtract(Duration(days: (_weekOffset * 7) + 6));
+    final weekEnd = now.subtract(Duration(days: _weekOffset * 7));
+    
+    if (_weekOffset == 0) {
+      return 'This Week (${DateFormat('MMM d').format(weekStart)} - ${DateFormat('MMM d').format(weekEnd)})';
+    } else {
+      return '${DateFormat('MMM d').format(weekStart)} - ${DateFormat('MMM d').format(weekEnd)}';
+    }
+  }
 
-  Future<List<Map<String, dynamic>>> _fetchWeekData() async {
+  Future<List<Map<String, dynamic>>> _fetchWeekData(int weekOffset) async {
     final List<Map<String, dynamic>> weekData = [];
     final now = DateTime.now();
     
+    // Calculate the start of the week based on offset
+    final baseDate = now.subtract(Duration(days: weekOffset * 7));
+    
     for (int i = 6; i >= 0; i--) {
-      final date = now.subtract(Duration(days: i));
+      final date = baseDate.subtract(Duration(days: i));
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
       
       try {
@@ -420,10 +454,41 @@ class _GoalsScreenState extends State<GoalsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Progress Chart Section
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Weekly Progress',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    // Week navigation buttons
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: _goToPreviousWeek,
+                          tooltip: 'Previous week',
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            Icons.chevron_right,
+                            color: _weekOffset == 0 ? Colors.grey : null,
+                          ),
+                          onPressed: _weekOffset == 0 ? null : _goToNextWeek,
+                          tooltip: 'Next week',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Week range display
                 Text(
-                  'Weekly Progress',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
+                  _getWeekRangeText(),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[600],
                       ),
                 ),
                 const SizedBox(height: 16),
