@@ -123,14 +123,24 @@ class HealthChecker:
         
         # Check lactose intolerance
         if health_profile.lactose_intolerant:
-            dairy_keywords = ["milk", "cream", "cheese", "butter", "whey", "lactose", "casein"]
-            if any(keyword in ingredients_lower for keyword in dairy_keywords):
-                warnings.append(schemas.HealthWarning(
-                    type="intolerance",
-                    severity="warning",
-                    message="Contains dairy/lactose (found in ingredients)",
-                    icon="⚠️"
-                ))
+            # Skip if explicitly lactose-free
+            if "lactose-free" in ingredients_lower or "lactose free" in ingredients_lower:
+                pass  # Product is lactose-free, no warning needed
+            else:
+                # Comprehensive dairy keyword list
+                dairy_keywords = [
+                    "milk", "cream", "cheese", "butter", "whey", "lactose", "casein",
+                    "yogurt", "yoghurt", "curd", "paneer", "ghee", "kefir", "buttermilk",
+                    "ice cream", "gelato", "milk powder", "milk solids", "milk fat",
+                    "lactalbumin", "lactoglobulin", "sodium caseinate", "nougat"
+                ]
+                if any(keyword in ingredients_lower for keyword in dairy_keywords):
+                    warnings.append(schemas.HealthWarning(
+                        type="intolerance",
+                        severity="warning",
+                        message="Contains dairy/lactose - May cause digestive discomfort",
+                        icon="⚠️"
+                    ))
         
         # Check gluten intolerance
         if health_profile.gluten_intolerant or health_profile.has_celiac:
@@ -234,11 +244,26 @@ class HealthChecker:
                 warnings.append(schemas.HealthWarning(
                     type="health_condition",
                     severity=severity,
-                    message=f"⚠️ High carbs ({actual_carbs:.1f}g) - Monitor blood sugar",
+                    message=f"⚠️ High carbs ({actual_carbs:.1f}g) - Test blood sugar 2 hours after eating",
                     icon="🩺"
                 ))
             
-            # 2. Hidden Sugar Check
+            # 2. Refined Carb Detection (High Glycemic Index Risk)
+            if food.ingredients_text:
+                refined_carb_keywords = [
+                    "white flour", "refined flour", "white rice", "white bread",
+                    "corn syrup", "maltodextrin", "refined sugar", "white sugar"
+                ]
+                found_refined = [k for k in refined_carb_keywords if k in food.ingredients_text.lower()]
+                if found_refined and food.carbs > 30:
+                    warnings.append(schemas.HealthWarning(
+                        type="health_condition",
+                        severity="warning",
+                        message=f"⚠️ Contains refined carbs - May spike blood sugar quickly",
+                        icon="📈"
+                    ))
+            
+            # 3. Hidden Sugar Check
             if food.ingredients_text:
                 found_sugars = [s for s in self.HIDDEN_SUGARS if s in food.ingredients_text.lower()]
                 if found_sugars:
@@ -251,7 +276,7 @@ class HealthChecker:
                         icon="🍬"
                     ))
             
-            # 3. Spike Risk (Carb/Protein Ratio)
+            # 4. Spike Risk (Carb/Protein Ratio)
             # High carbs with low protein/fat causes faster spikes
             if actual_carbs > 30:
                 # Add small epsilon to avoid division by zero
