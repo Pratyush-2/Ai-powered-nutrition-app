@@ -405,22 +405,84 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     );
                   } else if (snapshot.hasData && snapshot.data!.isNotEmpty) {
                     final logs = snapshot.data!;
-                    return ListView.builder(
-                      itemCount: logs.length,
-                      itemBuilder: (context, index) {
-                        final log = logs[index];
-                        final food = log.food;
-                        if (food == null) return const SizedBox.shrink();
-                        return MealCardWithRecommendation(
-                          log: log,
-                          onEdit: () {
-                            // Placeholder for edit logic
-                          },
-                          onDelete: () {
-                            // Placeholder for delete logic
-                          },
-                        );
-                      },
+                    
+                    // Calculate daily totals
+                    double totalCalories = 0;
+                    double totalProtein = 0;
+                    double totalCarbs = 0;
+                    double totalFats = 0;
+                    
+                    for (final log in logs) {
+                      final food = log.food;
+                      if (food != null) {
+                        final multiplier = log.quantity / 100;
+                        totalCalories += food.calories * multiplier;
+                        totalProtein += food.protein * multiplier;
+                        totalCarbs += food.carbs * multiplier;
+                        totalFats += food.fats * multiplier;
+                      }
+                    }
+                    
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: logs.length,
+                            itemBuilder: (context, index) {
+                              final log = logs[index];
+                              final food = log.food;
+                              if (food == null) return const SizedBox.shrink();
+                              return MealCardWithRecommendation(
+                                log: log,
+                                onEdit: () => _editLog(log),
+                                onDelete: () => _deleteLog(log),
+                                onChat: null, // Remove chat AI feature
+                              );
+                            },
+                          ),
+                        ),
+                        // Daily Totals Summary
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primaryContainer.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: theme.colorScheme.primary.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildTotalItem(
+                                '🔥',
+                                totalCalories.toStringAsFixed(0),
+                                'kcal',
+                                theme,
+                              ),
+                              _buildTotalItem(
+                                '🥩',
+                                totalProtein.toStringAsFixed(1),
+                                'P',
+                                theme,
+                              ),
+                              _buildTotalItem(
+                                '🍞',
+                                totalCarbs.toStringAsFixed(1),
+                                'C',
+                                theme,
+                              ),
+                              _buildTotalItem(
+                                '🧈',
+                                totalFats.toStringAsFixed(1),
+                                'F',
+                                theme,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     );
                   } else {
                     return const Center(child: Text('No logs for this date.'));
@@ -432,5 +494,139 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildTotalItem(String emoji, String value, String label, ThemeData theme) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontSize: 10,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _deleteLog(DailyLogModel log) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Food'),
+        content: Text('Delete ${log.food?.name ?? "this food"}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await apiService.deleteLog(log.id);
+        _fetchLogs(); // Refresh
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Food deleted'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _editLog(DailyLogModel log) async {
+    final quantityController = TextEditingController(
+      text: log.quantity.toStringAsFixed(0),
+    );
+
+    final newQuantity = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Edit ${log.food?.name ?? "Food"}'),
+        content: TextField(
+          controller: quantityController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Quantity (g)',
+            suffixText: 'g',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final value = double.tryParse(quantityController.text);
+              Navigator.pop(ctx, value);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (newQuantity != null && newQuantity > 0) {
+      try {
+        await apiService.updateLog(log.id, {
+          'quantity': newQuantity,
+          'food_id': log.food?.id,
+          'date': DateFormat('yyyy-MM-dd').format(log.date),
+        });
+        _fetchLogs(); // Refresh
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Quantity updated'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
