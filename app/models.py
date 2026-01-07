@@ -34,6 +34,7 @@ class Food(Base):
     protein = Column(Float)
     carbs = Column(Float)
     fats = Column(Float)
+    sodium = Column(Float, nullable=True)  # mg per 100g
     barcode = Column(String, nullable=True)
     serving_size = Column(String, nullable=True)
     ingredients_text = Column(String, nullable=True)  # For allergen detection

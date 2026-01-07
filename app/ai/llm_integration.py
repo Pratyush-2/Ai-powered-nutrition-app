@@ -159,7 +159,28 @@ def is_food_specific_question(text: str) -> bool:
     text_lower = text.lower()
     return "is" in text_lower and "a good choice for me" in text_lower
 
-async def chat_with_ai(db: Session, user_id: int, user_input: str) -> str:
+PROMPT_TEMPLATE_food_CONTEXT = """
+You are a friendly and knowledgeable nutrition assistant. The user is asking about a specific food validation.
+We have ALREADY analyzed this food for them. Use the existing analysis to explain WHY it is good or bad.
+
+ANALYSIS RESULT:
+- Food: {food_name}
+- Verdict: {recommendation} (Score: {score}/100)
+- Reason: {reasoning}
+
+Here is context about the user:
+{user_context}
+
+User's Question: "{user_input}"
+
+Instructions:
+1. Confirm the verdict directly (Recommended/Not Recommended).
+2. Explain specifically WHY based on the analysis (e.g., "Because it is high in sugar...").
+3. Connect it to their goal (e.g., "This might slow down your weight loss...").
+4. Keep it concise (3-4 sentences). Start friendly.
+"""
+
+async def chat_with_ai(db: Session, user_id: int, user_input: str, context: dict = None) -> str:
     """Asynchronous and enhanced chat function with detailed context and prompt engineering."""
     
     user_input_clean = user_input.lower().strip()
@@ -172,7 +193,17 @@ async def chat_with_ai(db: Session, user_id: int, user_input: str) -> str:
     try:
         user_context = await build_user_context(db, user_id)
         
-        if is_food_specific_question(user_input):
+        # Check if we have specific food context from the frontend
+        if context and context.get("food_name"):
+            prompt = PROMPT_TEMPLATE_food_CONTEXT.format(
+                user_context=user_context,
+                user_input=user_input,
+                food_name=context.get("food_name"),
+                recommendation="Recommended" if context.get("recommended") else "Not Recommended",
+                score=context.get("score", "?"),
+                reasoning=context.get("reasoning", "No specific reason provided.")
+            )
+        elif is_food_specific_question(user_input):
             prompt = PROMPT_TEMPLATE_FOOD_SPECIFIC.format(user_context=user_context, user_input=user_input)
         else:
             prompt = PROMPT_TEMPLATE_GENERAL.format(user_context=user_context, user_input=user_input)

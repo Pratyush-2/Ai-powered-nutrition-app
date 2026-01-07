@@ -17,6 +17,7 @@ class FoodBase(BaseModel):
     protein: float
     carbs: float
     fats: float
+    sodium: Optional[float] = None  # mg per 100g
     ingredients_text: Optional[str] = None  # For allergen detection
 
 class FoodCreate(FoodBase):
@@ -26,7 +27,7 @@ class Food(FoodBase):
     id: int
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # ---------- DailyLog ----------
 class DailyLogBase(BaseModel):
@@ -47,7 +48,7 @@ class DailyLog(DailyLogBase):
     food: Optional[Food] = None
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # ---------- Totals ----------
 class DailyTotals(BaseModel):
@@ -75,7 +76,7 @@ class UserGoal(UserGoalBase):
     user_id: int
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # ---------- User Profiles ----------
 class UserProfileBase(BaseModel):
@@ -96,7 +97,7 @@ class UserProfile(UserProfileBase):
     email: str
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class FactOut(BaseModel):
     food_name: str
@@ -105,6 +106,7 @@ class FactOut(BaseModel):
 
 class ChatRequest(BaseModel):
     query: str
+    context: Optional[Dict[str, Any]] = None
 
 class NutritionResult(BaseModel):
     score: float
@@ -163,7 +165,7 @@ class UserHealthProfile(UserHealthProfileBase):
     updated_at: datetime
 
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 # ---------- Health Warning ----------
 class HealthWarning(BaseModel):
