@@ -110,71 +110,45 @@ def _search_openfoodfacts(food_name: str, cache_key: str, current_time: float, t
             if success:
                 print(f"✅ Found {len(data.get('products', []))} products from OpenFoodFacts ({url})!")
                 
-                # Process and score products
+                # Process and score products  
                 products = data.get("products", [])
                 scored_products = []
                 search_lower = food_name.lower().strip()
-                search_words = search_lower.split()
                 
                 for product in products:
-                    # FILTER 1: English only
-                    lang = product.get("lang", "")
-                    if lang and lang != "en":
-                        continue  # Skip non-English products
-                    
                     product_name = product.get("product_name", "").lower().strip()
                     if not product_name:
                         continue
-                    
-                    # FILTER 2: Must contain at least one search word
-                    if not any(word in product_name for word in search_words):
-                        continue
                         
-                    # Calculate relevance score with improved logic
+                    # Simple but effective scoring
                     score = 0
-                    product_words = product_name.split()
                     
-                    # EXACT MATCH - highest priority
+                    # Exact match
                     if product_name == search_lower:
                         score = 1000
-                    # STARTS WITH - very high priority
-                    elif product_name.startswith(search_lower + " ") or product_name.startswith(search_lower):
-                        # Penalize if product has many extra words (e.g., "rice krispies")
-                        extra_words = len(product_words) - len(search_words)
-                        score = 500 - (extra_words * 100)  # Heavy penalty for extra words
-                    # SEARCH TERM IS COMPLETE WORD in product
-                    elif search_lower in product_words:
-                        # Simple product (few words) = higher score
-                        if len(product_words) <= 2:
-                            score = 400
-                        else:
-                            score = 200  # Compound product
-                    # CONTAINS AS WHOLE WORD
+                    # Starts with search (but penalize long names)
+                    elif product_name.startswith(search_lower):
+                        word_count = len(product_name.split())
+                        score = 500 - (word_count * 50)  # Fewer words = higher score
+                    # Contains as whole word
                     elif f" {search_lower} " in f" {product_name} ":
-                        score = 150 - (len(product_words) * 20)
-                    # CONTAINS ANYWHERE
+                        score = 300
+                    # Contains anywhere
                     elif search_lower in product_name:
-                        score = 100 - (len(product_words) * 30)
-                    # PARTIAL MATCHES
+                        score = 200
                     else:
-                        matching_words = sum(1 for word in search_words if word in product_name)
-                        score = 50 + (matching_words * 10) - (len(product_words) * 10)
-                    
-                    # PENALTY for compound/processed foods
-                    compound_indicators = ['with', 'and', '&', 'flavored', 'flavoured', 'style', 'mix', 'blend', 'cereal']
-                    if any(indicator in product_name for indicator in compound_indicators):
-                        if len(search_words) == 1:  # User searched for simple term
-                            score = score * 0.2  # Reduce score to 20%
-                    
-                    # Ensure score is not negative
-                    score = max(score, 0)
+                        # Partial match
+                        words = search_lower.split()
+                        matches = sum(1 for word in words if word in product_name)
+                        score = matches * 50
                     
                     # Ensure serving_size exists
                     product["serving_size"] = product.get("serving_size", "100g")
                     
-                    scored_products.append((score, product))
+                    if score > 0:
+                        scored_products.append((score, product))
                 
-                # Sort by score (highest first) and take top 5
+                # Sort by score and take top 5
                 scored_products.sort(key=lambda x: x[0], reverse=True)
                 data["products"] = [product for score, product in scored_products[:5]]
                 
