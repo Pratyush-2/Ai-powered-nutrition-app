@@ -64,14 +64,15 @@ def _search_openfoodfacts(food_name: str, cache_key: str, current_time: float, t
         'Accept': 'application/json',
     }
     
-    # SPEED OPTIMIZATION: Smaller page size and only essential fields
+    # SPEED OPTIMIZATION: Get more candidates but only essential fields
     params = {
         "search_terms": food_name,
         "search_simple": 1,
         "action": "process",
         "json": 1,
-        "page_size": 5,  # Reduced from 10 for faster response
-        "fields": "product_name,brands,nutriments,serving_size,ingredients_text"  # Added ingredients
+        "page_size": 50,  # CRITICAL FIX: Fetch 50 items to ensure we find "plain" versions
+        "sort_by": "unique_scans_n",  # CRITICAL FIX: Sort by popularity (staples vs obscure brands)
+        "fields": "product_name,brands,nutriments,serving_size,ingredients_text,lang"
     }
     
     # Try both endpoints in parallel with configurable timeout
