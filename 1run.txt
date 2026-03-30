@@ -1,3 +1,0 @@
-flutter emulators --launch Pixel_6_API_33           
-.venv\Scripts\activate   
- uvicorn app.main:app --reload                                                                                                                        

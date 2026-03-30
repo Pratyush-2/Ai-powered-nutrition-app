@@ -136,8 +136,19 @@ dmypy.json
 *.sqlite
 *.sqlite3
 
-# Google Cloud credentials (IMPORTANT!)
-analog-reef-470415-q6-b8ddae1e11b3.json
+# Google Cloud / Service Account credentials
+*.json
+!package.json
+!package-lock.json
+!pubspec.json
+!tsconfig.json
+!launch.json
+!*.xcconfig.json
+!nutrition_app/**/*.json
+
+# Personal notes / scratch files
+1run.txt
+read me.txt
 
 # IDEs
 .vscode/
