@@ -4,6 +4,9 @@
 echo "=== Nutrition AI Application Setup ==="
 echo
 
+# Navigate to project root
+cd "$(dirname "$0")/.."
+
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then
     echo "Creating virtual environment..."
