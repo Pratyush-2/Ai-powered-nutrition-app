@@ -1,70 +1,78 @@
-# Security Guidelines
+# Security Policy
 
-## 🔒 Important Security Information
+## Supported Versions
 
-### Credentials Management
+| Version | Supported          |
+| ------- | ------------------ |
+| 1.x     | :white_check_mark: |
 
-**NEVER commit the following files to git:**
-- `analog-reef-470415-q6-b8ddae1e11b3.json` - Google Cloud Vision API credentials
-- `.env` - Environment variables with API keys
-- `*.db` - Database files containing user data
-- Any files containing API keys, passwords, or secrets
+## Reporting a Vulnerability
 
-### Google Cloud Vision API Credentials
+We take security seriously. If you discover a security vulnerability, please report it responsibly.
 
-The credentials file `analog-reef-470415-q6-b8ddae1e11b3.json` is:
-- ✅ Already in `.gitignore` (line 137)
-- ✅ Should remain local to your machine
-- ✅ Should NOT be shared or committed
+**Please DO NOT open a public GitHub issue for security vulnerabilities.**
 
-**If credentials are accidentally committed:**
-1. Remove from git history: `git rm --cached analog-reef-470415-q6-b8ddae1e11b3.json`
-2. Revoke the service account in Google Cloud Console
-3. Generate new credentials
-4. Update `.gitignore` if needed
+### How to Report
 
-### Environment Variables
+1. **Email**: Send a detailed report to [pratyush0040@gmail.com](mailto:pratyush0040@gmail.com)
+2. **Include**:
+   - Description of the vulnerability
+   - Steps to reproduce
+   - Potential impact
+   - Suggested fix (if any)
 
-Use `.env` file for local development (already in `.gitignore`):
-```bash
-# Copy the example file
-cp .env.example .env
+### Response Timeline
 
-# Edit with your actual keys
-# NEVER commit .env to git
-```
+| Action | Timeframe |
+|--------|-----------|
+| Acknowledgment | Within 48 hours |
+| Initial assessment | Within 1 week |
+| Fix deployed | Within 2 weeks (critical) |
 
-### Database Files
+## Security Best Practices
 
-All database files (`*.db`, `*.sqlite`, `*.sqlite3`) are ignored by git.
-- Database files contain user data and should never be committed
-- They are generated locally when the application runs
-- Backup databases separately if needed
+### For Contributors
 
-## 🛡️ Best Practices
+- **Never commit secrets** — Use environment variables via `.env` (see `.env.example`)
+- **Review changes** — Check `git diff --staged` before committing
+- **Keep dependencies updated** — Run `pip audit` and `safety check` regularly
+- **Use HTTPS** — All API communication should use TLS in production
 
-1. **Never commit secrets** - Use environment variables
-2. **Review changes** - Check `git status` before committing
-3. **Use .env.example** - Document required environment variables
-4. **Rotate credentials** - Regularly update API keys
-5. **Monitor access** - Check Google Cloud Console for unusual activity
+### For Deployment
 
-## 📞 Security Issues
+- Enable rate limiting via `RATE_LIMIT_PER_MINUTE` environment variable
+- Use a production database (PostgreSQL) instead of SQLite
+- Set strong `SECRET_KEY` and JWT expiration
+- Enable CORS only for trusted origins
+- Run behind a reverse proxy (e.g., Nginx) with TLS
 
-If you discover a security vulnerability:
-1. **DO NOT** create a public issue
-2. Contact the repository maintainer privately
-3. Provide details of the vulnerability
-4. Allow time for a fix before public disclosure
+### Credential Management
 
-## ✅ Security Checklist
+| File | Purpose | Committed? |
+|------|---------|------------|
+| `.env` | API keys and secrets | ❌ Never — in `.gitignore` |
+| `.env.example` | Template with placeholder values | ✅ Yes |
+| `*.json` (service accounts) | Cloud provider credentials | ❌ Never — in `.gitignore` |
+| `*.db` | Database files with user data | ❌ Never — in `.gitignore` |
 
-Before committing:
-- [ ] No API keys in code
-- [ ] No credentials files tracked
-- [ ] No database files tracked
-- [ ] `.env` file not committed
-- [ ] Sensitive data removed from logs
-- [ ] Dependencies are up-to-date
+## Automated Security Checks
 
+This project includes a CI pipeline (`.github/workflows/ci.yml`) with:
 
+- **Bandit** — Static analysis for Python security issues
+- **Safety** — Dependency vulnerability scanning
+- **Flake8** — Code quality and syntax error detection
+
+## Scope
+
+The following are in scope for security reports:
+
+- Authentication and authorization flaws
+- Injection vulnerabilities (SQL, command, etc.)
+- Data exposure or leakage
+- Insecure dependencies
+- Misconfigured security headers
+
+## Acknowledgments
+
+We appreciate the security research community. Responsible reporters will be credited in release notes (with permission).

@@ -49,8 +49,8 @@ A comprehensive AI-powered nutrition application built with FastAPI, featuring R
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/Pratyush-2/Proj-fastapi.git
-cd Proj-fastapi
+git clone https://github.com/Pratyush-2/ai-powered-nutrition-app.git
+cd ai-powered-nutrition-app
 ```
 
 ### 2. Environment Setup
