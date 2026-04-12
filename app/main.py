@@ -47,7 +47,9 @@ def root():
 def read_users_me(current_user: models.UserProfile = Depends(auth.get_current_active_user)):
     return current_user
 
-# Food
+from app import user_profiles
+app.include_router(user_profiles.router)
+
 @app.post("/foods/", response_model=schemas.Food)
 def create_food(food: schemas.FoodCreate, db: Session = Depends(get_db), current_user: models.UserProfile = Depends(auth.get_current_active_user)):
     return crud.create_food(db=db, food=food)
