@@ -1,5 +1,6 @@
 # ============================================
 # AI-Powered Nutrition App - Requirements
+# Production-optimized (no unused ML frameworks)
 # ============================================
 
 # Core Web Framework
@@ -26,46 +27,28 @@ python-multipart>=0.0.6
 pandas>=2.0.0
 numpy>=1.24.0
 
-# Machine Learning - Core
+# Machine Learning - Core (for random forest model)
 scikit-learn>=1.2.0
 joblib>=1.2.0
 
-# Machine Learning - Deep Learning
-torch>=2.0.0
-tensorflow>=2.15.0
-tf-keras>=2.15.0
-transformers>=4.30.0
-
-# Machine Learning - Embeddings & Search
+# Machine Learning - Embeddings & Search (lazy-loaded)
 sentence-transformers>=2.2.0
 faiss-cpu>=1.7.0
 
 # Image Processing
 pillow>=9.5.0
-opencv-python>=4.7.0
+opencv-python-headless>=4.7.0
 pyzbar>=0.1.9
 
-# LLM Integration
-ollama>=0.1.0
-openai>=1.0.0
+# LLM Integration (Groq - free cloud LLM)
+groq>=0.4.0
+
+# Google Cloud Vision (optional)
+google-cloud-vision>=3.4.0
+google-auth>=2.22.0
 
 # Validation & Schema
 pydantic>=2.0.0
 
 # Environment
 python-dotenv>=1.0.0
-
-# Testing
-pytest>=7.3.0
-pytest-asyncio>=0.21.0
-pytest-cov>=4.1.0
-pytest-mock>=3.10.0
-pytest-env>=0.8.0
-pytest-timeout>=2.1.0
-
-# Type Checking
-mypy>=1.3.0
-types-requests>=2.31.0
-types-python-dateutil>=2.8.0
-types-PyYAML>=6.0.0
-types-protobuf>=4.23.0

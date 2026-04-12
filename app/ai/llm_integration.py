@@ -1,11 +1,17 @@
 import httpx
 import asyncio
+import os
+import logging
 from sqlalchemy.orm import Session
 from app.crud import get_user_profile, get_user_goals, get_logs_by_user
 from datetime import date, datetime, timedelta
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "phi3:mini"
+logger = logging.getLogger(__name__)
+
+# Groq API configuration (free cloud LLM - replaces local Ollama)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
 PROMPT_TEMPLATE_GENERAL = """
 You are a friendly and knowledgeable nutrition assistant. Your goal is to provide clear, helpful, and personalized advice.
@@ -21,7 +27,7 @@ Please structure your response in the following format, keeping it clear and eas
 
 **Direct Answer (2-4 lines):** Provide a straightforward answer to the user's question.
 
-**✅ What’s Good:**
+**✅ What's Good:**
 - Bullet point 1
 - Bullet point 2
 - Bullet point 3
@@ -106,38 +112,60 @@ def _build_user_context_sync(db: Session, user_id: int) -> str:
     
     return "\n\n".join(context_parts)
 
-async def query_ollama(prompt: str) -> str:
-    """Asynchronously query Ollama with optimized settings."""
+async def query_groq(prompt: str) -> str:
+    """Query Groq cloud LLM API (free tier - replaces local Ollama)."""
+    
+    if not GROQ_API_KEY:
+        return "AI chat assistant is not configured. Please set GROQ_API_KEY environment variable."
+    
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
     
     payload = {
-        "model": MODEL_NAME,
-        "prompt": prompt,
-        "stream": False,
-        "options": {
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "top_k": 40,
-            "num_predict": 450, 
-            "num_ctx": 3000,
-            "repeat_penalty": 1.1,
-            "repeat_last_n": 64
-        }
+        "model": GROQ_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a friendly and knowledgeable nutrition assistant. Keep responses concise and actionable."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": 0.7,
+        "max_tokens": 450,
+        "top_p": 0.9
     }
     
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.post(OLLAMA_URL, json=payload, timeout=30.0)
+            response = await client.post(
+                GROQ_API_URL, 
+                headers=headers, 
+                json=payload, 
+                timeout=30.0
+            )
             response.raise_for_status()
             
             result = response.json()
-            return result.get("response", "").strip()
+            content = result["choices"][0]["message"]["content"]
+            return content.strip()
             
         except httpx.ConnectError:
+            logger.error("Failed to connect to Groq API")
             return "AI assistant is currently unavailable. Please try again later."
         except httpx.TimeoutException:
             return "The response is taking longer than expected. Could you try rephrasing your question?"
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Groq API error: {e.response.status_code} - {e.response.text}")
+            if e.response.status_code == 429:
+                return "I'm receiving too many requests right now. Please wait a moment and try again."
+            return "I'm having trouble processing your request right now. Please try again."
         except Exception as e:
-            print(f"Ollama error: {e}")
+            logger.error(f"Groq error: {e}")
             return "I'm having trouble processing your request right now. Please try again."
 
 def is_greeting_only(text: str) -> bool:
@@ -208,7 +236,7 @@ async def chat_with_ai(db: Session, user_id: int, user_input: str, context: dict
         else:
             prompt = PROMPT_TEMPLATE_GENERAL.format(user_context=user_context, user_input=user_input)
 
-        response = await query_ollama(prompt)
+        response = await query_groq(prompt)
         
         if response and len(response.strip()) >= 20:
             return response
@@ -216,5 +244,5 @@ async def chat_with_ai(db: Session, user_id: int, user_input: str, context: dict
         return "I'm not quite sure how to respond to that. Could you try asking me a different question about your nutrition?"
         
     except Exception as e:
-        print(f"Chat error: {e}")
+        logger.error(f"Chat error: {e}")
         return "I'm having some technical difficulties right now. Could you try asking your question again in a moment?"

@@ -1,5 +1,7 @@
 import requests
 import json
+import os
+import logging
 from sqlalchemy.orm import Session
 from app.crud import get_user_profile, get_user_goals, get_logs_by_user
 from app.ai.retriever import retrieve_facts
@@ -7,40 +9,54 @@ from datetime import date
 from sqlalchemy import func
 from app import models
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "phi3:mini"
+logger = logging.getLogger(__name__)
 
-def query_ollama(prompt: str) -> str:
-    """Query Ollama with settings optimized for nutrition responses."""
+# Groq API configuration (replaces local Ollama)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "llama-3.3-70b-versatile"
+
+def query_groq(prompt: str) -> str:
+    """Query Groq cloud LLM API (replaces local Ollama)."""
+    
+    if not GROQ_API_KEY:
+        return "AI assistant is not configured. Please set GROQ_API_KEY."
+    
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
     
     payload = {
-        "model": MODEL_NAME,
-        "prompt": prompt,
-        "stream": False,
-        "options": {
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "top_k": 40,
-            "num_predict": 200,
-            "num_ctx": 2048,
-            "repeat_penalty": 1.1,
-            "repeat_last_n": 64
-        }
+        "model": GROQ_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are a friendly and knowledgeable nutrition assistant. Keep responses concise and actionable."
+            },
+            {
+                "role": "user", 
+                "content": prompt
+            }
+        ],
+        "temperature": 0.7,
+        "max_tokens": 200,
+        "top_p": 0.9
     }
     
     try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=15)
+        response = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=15)
         response.raise_for_status()
         
         result = response.json()
-        return result.get("response", "").strip()
+        return result["choices"][0]["message"]["content"].strip()
         
     except requests.exceptions.ConnectionError:
         return "AI assistant is currently unavailable. Please try again later."
     except requests.exceptions.Timeout:
         return "The response is taking longer than expected. Could you try rephrasing your question?"
     except Exception as e:
-        print(f"Ollama error: {e}")
+        logger.error(f"Groq error: {e}")
         return "I'm having trouble processing your request right now. Please try again."
 
 def get_llm_explanation(classification, rag_output):
@@ -55,7 +71,7 @@ Relevant Nutrition Information:
 
 Explain why this food is or is not recommended for the user in a conversational and encouraging tone."""
 
-        response = query_ollama(prompt)
+        response = query_groq(prompt)
         
         if response and len(response.strip()) >= 10:
             return response
@@ -63,7 +79,7 @@ Explain why this food is or is not recommended for the user in a conversational 
             return fallback_explanation(classification)
 
     except Exception as e:
-        print(f"LLM generation failed: {e}")
+        logger.error(f"LLM generation failed: {e}")
         return fallback_explanation(classification)
 
 def generate_contextual_chat_response(user_query: str, user_id: int, db: Session):
@@ -73,12 +89,11 @@ def generate_contextual_chat_response(user_query: str, user_id: int, db: Session
         # Get user data
         user_profile = get_user_profile(db, user_id)
         user_goals = get_user_goals(db, user_id)
-        recent_logs = get_logs_by_user(db, user_id, limit=10)  # Last 10 entries
+        recent_logs = get_logs_by_user(db, user_id, limit=10)
         
         # Build comprehensive context
         context_parts = []
         
-        # User profile context
         if user_profile:
             context_parts.append(f"""User Profile:
 - Name: {user_profile.name or 'Unknown'}
@@ -92,7 +107,6 @@ def generate_contextual_chat_response(user_query: str, user_id: int, db: Session
 - Allergies: {user_profile.allergies or 'None specified'}
 - Health Conditions: {user_profile.health_conditions or 'None specified'}""")
         
-        # User goals context
         if user_goals:
             first_goal = user_goals[0]
             context_parts.append(f"""Current Nutrition Goals:
@@ -101,10 +115,9 @@ def generate_contextual_chat_response(user_query: str, user_id: int, db: Session
 - Daily Carbs: {first_goal.carbs_goal or 'Not set'}g  
 - Daily Fats: {first_goal.fats_goal or 'Not set'}g""")
         
-        # Recent food logs context
         if recent_logs:
             context_parts.append("Recent Food Log (last 10 entries):")
-            for log in recent_logs[:5]:  # Show last 5 for brevity
+            for log in recent_logs[:5]:
                 if log.food:
                     food_name = log.food.name
                     quantity = log.quantity
@@ -114,7 +127,6 @@ def generate_contextual_chat_response(user_query: str, user_id: int, db: Session
                     fats = log.food.fats * quantity
                     context_parts.append(f"- {log.date}: {quantity}x {food_name} ({calories:.0f} kcal, {protein:.1f}g protein, {carbs:.1f}g carbs, {fats:.1f}g fats)")
         
-        # Today's intake so far
         today = date.today().isoformat()
         today_totals = get_daily_totals_by_user(db, user_id, today)
         if today_totals:
@@ -124,10 +136,8 @@ def generate_contextual_chat_response(user_query: str, user_id: int, db: Session
 - Carbs: {today_totals['carbs']:.1f}g
 - Fats: {today_totals['fats']:.1f}g""")
         
-        # Combine context
         full_context = "\n\n".join(context_parts)
         
-        # Create nutrition-focused prompt
         prompt = f"""You are a knowledgeable nutrition assistant. Use the following user information to provide personalized, helpful responses about nutrition, diet, and healthy living.
 
 {full_context}
@@ -138,35 +148,29 @@ Provide a helpful, personalized response that considers the user's profile, goal
 
 Response:"""
 
-        # Generate response using Ollama
-        response = query_ollama(prompt)
+        response = query_groq(prompt)
         
-        # Clean up response
         if not response or len(response) < 10:
             response = "I'd be happy to help with your nutrition questions! Based on your profile and goals, I can provide personalized advice about healthy eating, meal planning, and reaching your targets."
         
-        # Ensure response is relevant (fallback if it seems off-topic)
         if not any(keyword in response.lower() for keyword in ['nutrition', 'food', 'eat', 'health', 'diet', 'protein', 'calories', 'exercise', 'weight']):
             response += "\n\nHow can I help you with your nutrition goals today?"
         
         return response
         
     except Exception as e:
-        print(f"Contextual chat generation error: {e}")
+        logger.error(f"Contextual chat generation error: {e}")
         return "I'm having trouble accessing your data right now. Could you try asking your question again?"
 
 def chat_with_llm(user_query: str, user_id: int, db: Session):
     """Enhanced chat system with user context for all responses."""
     
     try:
-        # Retrieve user-specific data
         user_profile = get_user_profile(db, user_id)
         user_goals = get_user_goals(db, user_id)
         
-        # Convert query to lowercase for matching
         query_lower = user_query.lower()
         
-        # Nutrition-specific queries still get rule-based responses for accuracy
         nutrition_keywords = {
             'protein': ['protein', 'muscle', 'strength', 'build muscle'],
             'weight loss': ['weight loss', 'lose weight', 'slimming', 'cut weight'],
@@ -175,11 +179,10 @@ def chat_with_llm(user_query: str, user_id: int, db: Session):
             'exercise': ['exercise', 'workout', 'fitness', 'gym', 'training', 'cardio']
         }
         
-        # Check for nutrition-specific queries first
         for topic, keywords in nutrition_keywords.items():
             if any(keyword in query_lower for keyword in keywords):
                 if topic == 'protein':
-                    response = """Protein is crucial for muscle maintenance and overall health. Good sources include:
+                    return """Protein is crucial for muscle maintenance and overall health. Good sources include:
 
 • Lean meats: chicken, turkey, lean beef
 • Fish and seafood: salmon, tuna, shrimp
@@ -190,20 +193,7 @@ def chat_with_llm(user_query: str, user_id: int, db: Session):
 Aim for 1.2-2.0g of protein per kg of body weight daily, distributed across meals."""
                     
                 elif topic == 'weight loss':
-                    if user_profile and user_profile.target_calories:
-                        calorie_deficit = max(300, user_profile.target_calories * 0.2)
-                        response = f"""For sustainable weight loss, create a moderate calorie deficit while maintaining nutrient density. Based on your profile:
-
-• Target daily calories: {user_profile.target_calories} kcal
-• Suggested deficit for weight loss: {int(calorie_deficit)} kcal/day
-• Focus on whole foods, not restriction
-• Include regular exercise (cardio + strength training)
-• Get adequate sleep (7-9 hours/night)
-• Track progress, not just weight
-
-Remember: 0.5-1kg per week is sustainable and maintainable!"""
-                    else:
-                        response = """For weight loss, focus on creating a sustainable calorie deficit through healthy eating and regular exercise. Key principles:
+                    return """For weight loss, focus on creating a sustainable calorie deficit through healthy eating and regular exercise. Key principles:
 
 • Create a 300-500 calorie daily deficit
 • Prioritize whole, nutrient-dense foods
@@ -215,19 +205,7 @@ Remember: 0.5-1kg per week is sustainable and maintainable!"""
 Sustainable changes lead to lasting results!"""
                     
                 elif topic == 'calories':
-                    if user_profile and user_profile.target_calories:
-                        response = f"""Based on your profile, your estimated daily calorie needs are {user_profile.target_calories} calories. Here's how to manage them:
-
-• Track your intake using apps or journals
-• Focus on nutrient-dense foods that fill you up
-• Include all food groups for balanced nutrition
-• Allow flexibility for social eating
-• Adjust based on activity level and progress
-• Remember: calories are just one part of nutrition!
-
-Quality matters as much as quantity."""
-                    else:
-                        response = """Calorie management is personal and depends on your goals, age, weight, and activity level. General guidelines:
+                    return """Calorie management is personal and depends on your goals, age, weight, and activity level. General guidelines:
 
 • Sedentary adults: 1,800-2,400 calories/day
 • Lightly active: 2,200-2,800 calories/day  
@@ -237,7 +215,7 @@ Quality matters as much as quantity."""
 Use calorie tracking as a tool, not a strict rule. Focus on nourishing your body!"""
                     
                 elif topic == 'hydration':
-                    response = """Proper hydration is crucial for health and performance:
+                    return """Proper hydration is crucial for health and performance:
 
 • Aim for 8-10 glasses (2-3 liters) of water daily
 • More if you're active, in hot weather, or ill
@@ -249,7 +227,7 @@ Use calorie tracking as a tool, not a strict rule. Focus on nourishing your body
 Your body is about 60% water - keep it flowing!"""
                     
                 elif topic == 'exercise':
-                    response = """Combining nutrition with exercise maximizes results:
+                    return """Combining nutrition with exercise maximizes results:
 
 • Strength training: 2-3x/week, all major muscle groups
 • Cardio: 150 minutes moderate or 75 minutes vigorous weekly
@@ -259,15 +237,12 @@ Your body is about 60% water - keep it flowing!"""
 • Balance cardio and strength for optimal body composition
 
 Nutrition fuels performance - eat to support your activity level!"""
-                
-                return response
         
         # For ALL other queries, use contextual LLM response
         return generate_contextual_chat_response(user_query, user_id, db)
         
     except Exception as e:
-        print(f"Chat error: {e}")
-        # Fallback to contextual LLM even if main logic fails
+        logger.error(f"Chat error: {e}")
         try:
             return generate_contextual_chat_response(user_query, user_id, db)
         except:

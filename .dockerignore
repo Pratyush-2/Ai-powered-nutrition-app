@@ -1,0 +1,41 @@
+# Version control
+.git
+.github
+.gitignore
+
+# Python
+.venv
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+
+# Flutter app (not needed on backend server)
+nutrition_app/
+
+# Environment files
+.env
+.env.example
+
+# Database files (will be created fresh on server)
+*.db
+data/*.db
+
+# IDE
+.idea
+.vscode
+*.swp
+
+# Docs (not needed at runtime)
+docs/
+*.md
+LICENSE
+
+# Test files
+tests/
+pytest.ini
+
+# Misc
+*.csv
+scripts/
