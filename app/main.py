@@ -37,6 +37,11 @@ app.add_middleware(
 app.include_router(auth_router.router)
 app.include_router(ai_router)
 
+# Health check / root endpoint
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "Nutrition API is running!", "docs": "/docs"}
+
 # User Profile
 @app.get("/profiles/me", response_model=schemas.UserProfile)
 def read_users_me(current_user: models.UserProfile = Depends(auth.get_current_active_user)):
