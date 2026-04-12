@@ -37,9 +37,13 @@ app.add_middleware(
 app.include_router(auth_router.router)
 app.include_router(ai_router)
 
-# Health check / root endpoint
-@app.get("/")
-def root():
+import os
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+# API Health check
+@app.get("/api/health")
+def api_health():
     return {"status": "ok", "message": "Nutrition API is running!", "docs": "/docs"}
 
 # User Profile
@@ -163,3 +167,16 @@ def check_food_safety(
     warnings = health_checker.check_food_safety(food, health_profile, request.quantity)
     
     return warnings
+
+# ==========================================
+# Serve Flutter Web Interface
+# ==========================================
+static_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "nutrition_app", "build", "web"))
+if os.path.isdir(static_path):
+    print(f"Serving Flutter web interface from {static_path}")
+    app.mount("/", StaticFiles(directory=static_path, html=True), name="flutter_web")
+else:
+    print(f"Warning: Flutter web interface not found at {static_path}. API will run without UI.")
+    @app.get("/")
+    def root():
+        return {"status": "ok", "message": "Nutrition API is running! (Web UI missing)"}

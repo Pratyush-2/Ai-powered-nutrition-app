@@ -11,8 +11,11 @@ __pycache__
 .pytest_cache
 .mypy_cache
 
-# Flutter app (not needed on backend server)
-nutrition_app/
+# Flutter app (only push compiled web build)
+nutrition_app/*
+!nutrition_app/build/
+nutrition_app/build/*
+!nutrition_app/build/web/
 
 # Environment files
 .env
