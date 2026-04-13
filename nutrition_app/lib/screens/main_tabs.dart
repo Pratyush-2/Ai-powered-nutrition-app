@@ -7,8 +7,7 @@ import 'profile_screen.dart';
 import 'goals_screen.dart';
 
 class MainTabs extends StatefulWidget {
-  final bool isGuest;
-  const MainTabs({super.key, this.isGuest = false});
+  const MainTabs({super.key});
 
   @override
   State<MainTabs> createState() => _MainTabsState();
@@ -24,11 +23,11 @@ class _MainTabsState extends State<MainTabs> {
   void initState() {
     super.initState();
     _pages = [
-      HomeScreen(key: _homeScreenKey, isGuest: widget.isGuest),
+      HomeScreen(key: _homeScreenKey),
       const HistoryScreen(),
       const ChatScreen(),
-      GoalsScreen(onGoalsUpdated: _refreshHomeScreen, isGuest: widget.isGuest),
-      ProfileScreen(isGuest: widget.isGuest),
+      GoalsScreen(onGoalsUpdated: _refreshHomeScreen),
+      const ProfileScreen(),
     ];
   }
 

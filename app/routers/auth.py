@@ -41,3 +41,33 @@ def login(
         data={"sub": user.email},
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+from pydantic import BaseModel
+
+class MockOAuthRequest(BaseModel):
+    email: str
+    name: str
+
+@router.post("/mock-oauth", response_model=schemas.Token)
+def mock_oauth(request: MockOAuthRequest, db: Session = Depends(get_db)):
+    """Simulate OAuth login flow, auto-registering if they don't exist."""
+    user = crud.get_user_by_email(db, email=request.email)
+    
+    if not user:
+        # Auto construct a profile for the OAuth user
+        mock_profile = schemas.UserProfileCreate(
+            email=request.email,
+            password="OAUTH_MOCK_PASSWORD_DO_NOT_USE",
+            name=request.name,
+            age=25,
+            weight_kg=70.0,
+            height_cm=170.0,
+            gender="Not Specified",
+            activity_level="moderately_active",
+            goal="maintain"
+        )
+        user = crud.create_user_profile(db=db, profile=mock_profile)
+        
+    access_token = auth.create_access_token(data={"sub": user.email})
+    return {"access_token": access_token, "token_type": "bearer"}
+

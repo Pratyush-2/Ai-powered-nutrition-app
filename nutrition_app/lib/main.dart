@@ -7,7 +7,7 @@ import 'package:nutrition_app/services/auth_service.dart';
 
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
-final ApiService apiService = ApiService('http://10.0.2.2:8000');
+final ApiService apiService = ApiService('https://ai-powered-nutrition-app.onrender.com');
 final AuthService authService = AuthService();
 
 Future<void> main() async {

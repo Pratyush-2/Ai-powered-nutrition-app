@@ -133,7 +133,7 @@ class _CreateProfileScreenState extends State<CreateProfileScreen> {
       };
 
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/profiles/'),
+        Uri.parse('https://ai-powered-nutrition-app.onrender.com/profiles/'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(profileData),
       );

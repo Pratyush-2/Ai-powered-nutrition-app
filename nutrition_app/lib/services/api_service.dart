@@ -44,6 +44,18 @@ class ApiService {
     return data;
   }
 
+  Future<Map<String, dynamic>> mockOAuthLogin(String email, String name) async {
+    final uri = Uri.parse('$baseUrl/auth/mock-oauth');
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'name': name}),
+    );
+    final data = _handleResponse(response);
+    await _authService.saveToken(data['access_token']);
+    return data;
+  }
+
   Future<Map<String, dynamic>> register(Map<String, dynamic> profileData) async {
     final uri = Uri.parse('$baseUrl/auth/register');
     final response = await http.post(

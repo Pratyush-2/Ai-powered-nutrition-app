@@ -2,8 +2,8 @@ import 'package:nutrition_app/services/api_service.dart';
 
 class ApiConfig {
   static String get baseUrl {
-    // Force Android emulator base URL per requirements
-    return 'http://10.0.2.2:8000';
+    // Production API hosted on Render
+    return 'https://ai-powered-nutrition-app.onrender.com';
   }
 }
 
