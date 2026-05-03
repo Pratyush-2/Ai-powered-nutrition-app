@@ -2,6 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:nutrition_app/main.dart';
 import 'dart:developer' as developer;
+import 'package:nutrition_app/theme/app_theme.dart';
+import 'package:nutrition_app/widgets/glass_card.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -65,21 +67,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: TextFormField(
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: AppTheme.textPrimary),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-          prefixIcon: Icon(icon, color: Colors.greenAccent),
-          enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: Colors.greenAccent),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          filled: true,
-          fillColor: Colors.black.withOpacity(0.2),
+          prefixIcon: Icon(icon, color: AppTheme.primary),
         ),
         obscureText: isPassword,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
@@ -103,7 +94,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         height: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF1B1D22), Color(0xFF2A2D34)],
+            colors: [AppTheme.background, Color(0xFF000000)],
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
           ),
@@ -113,117 +104,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
             padding: const EdgeInsets.all(24.0),
             child: Column(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.1),
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                GlassCard(
+                  padding: const EdgeInsets.all(24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildTextField('Full Name', Icons.person_outline, (val) => _name = val!),
+                        _buildTextField('Email', Icons.email_outlined, (val) => _email = val!, validator: (val) => val!.isEmpty ? 'Enter email' : null),
+                        _buildTextField('Password', Icons.lock_outline, (val) => _password = val!, isPassword: true, validator: (val) => val!.length < 6 ? 'Min 6 chars' : null),
+                        
+                        Row(
                           children: [
-                            _buildTextField('Full Name', Icons.person_outline, (val) => _name = val!),
-                            _buildTextField('Email', Icons.email_outlined, (val) => _email = val!, validator: (val) => val!.isEmpty ? 'Enter email' : null),
-                            _buildTextField('Password', Icons.lock_outline, (val) => _password = val!, isPassword: true, validator: (val) => val!.length < 6 ? 'Min 6 chars' : null),
-                            
-                            Row(
-                              children: [
-                                Expanded(child: _buildTextField('Age', Icons.calendar_today, (val) => _age = int.tryParse(val ?? ''), isNumber: true)),
-                                const SizedBox(width: 16),
-                                Expanded(child: _buildTextField('Weight (kg)', Icons.scale, (val) => _weight = double.tryParse(val ?? ''), isNumber: true)),
-                              ],
-                            ),
-                            
-                            _buildTextField('Height (cm)', Icons.height, (val) => _height = double.tryParse(val ?? ''), isNumber: true),
-
-                            // Gender Dropdown
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 16.0),
-                              child: DropdownButtonFormField<String>(
-                                dropdownColor: const Color(0xFF2A2D34),
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  labelText: 'Gender',
-                                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                                  prefixIcon: const Icon(Icons.people_outline, color: Colors.greenAccent),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(color: Colors.greenAccent),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.black.withOpacity(0.2),
-                                ),
-                                items: ['Male', 'Female']
-                                    .map((label) => DropdownMenuItem(value: label, child: Text(label)))
-                                    .toList(),
-                                onChanged: (val) => setState(() => _gender = val),
-                                onSaved: (val) => _gender = val,
-                              ),
-                            ),
-
-                            // Activity Dropdown
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 24.0),
-                              child: DropdownButtonFormField<String>(
-                                dropdownColor: const Color(0xFF2A2D34),
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  labelText: 'Activity Level',
-                                  labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                                  prefixIcon: const Icon(Icons.directions_run, color: Colors.greenAccent),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(color: Colors.greenAccent),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  filled: true,
-                                  fillColor: Colors.black.withOpacity(0.2),
-                                ),
-                                items: [
-                                  'sedentary', 'lightly_active', 'moderately_active', 'very_active', 'super_active'
-                                ]
-                                    .map((label) => DropdownMenuItem(value: label, child: Text(label.replaceAll('_', ' '))))
-                                    .toList(),
-                                onChanged: (val) => setState(() => _activityLevel = val),
-                                onSaved: (val) => _activityLevel = val,
-                              ),
-                            ),
-
-                            _isLoading
-                                ? const Center(child: CircularProgressIndicator(color: Colors.greenAccent))
-                                : ElevatedButton(
-                                    onPressed: _register,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.greenAccent,
-                                      foregroundColor: Colors.black87,
-                                      padding: const EdgeInsets.symmetric(vertical: 16),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      elevation: 0,
-                                    ),
-                                    child: const Text('Register', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                  ),
+                            Expanded(child: _buildTextField('Age', Icons.calendar_today, (val) => _age = int.tryParse(val ?? ''), isNumber: true)),
+                            const SizedBox(width: 16),
+                            Expanded(child: _buildTextField('Weight (kg)', Icons.scale, (val) => _weight = double.tryParse(val ?? ''), isNumber: true)),
                           ],
                         ),
-                      ),
+                        
+                        _buildTextField('Height (cm)', Icons.height, (val) => _height = double.tryParse(val ?? ''), isNumber: true),
+
+                        // Gender Dropdown
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16.0),
+                          child: DropdownButtonFormField<String>(
+                            dropdownColor: AppTheme.surface,
+                            style: TextStyle(color: AppTheme.textPrimary),
+                            decoration: InputDecoration(
+                              labelText: 'Gender',
+                              prefixIcon: Icon(Icons.people_outline, color: AppTheme.primary),
+                            ),
+                            items: ['Male', 'Female']
+                                .map((label) => DropdownMenuItem(value: label, child: Text(label)))
+                                .toList(),
+                            onChanged: (val) => setState(() => _gender = val),
+                            onSaved: (val) => _gender = val,
+                          ),
+                        ),
+
+                        // Activity Dropdown
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 24.0),
+                          child: DropdownButtonFormField<String>(
+                            dropdownColor: AppTheme.surface,
+                            style: TextStyle(color: AppTheme.textPrimary),
+                            decoration: InputDecoration(
+                              labelText: 'Activity Level',
+                              prefixIcon: Icon(Icons.directions_run, color: AppTheme.primary),
+                            ),
+                            items: [
+                              'sedentary', 'lightly_active', 'moderately_active', 'very_active', 'super_active'
+                            ]
+                                .map((label) => DropdownMenuItem(value: label, child: Text(label.replaceAll('_', ' '))))
+                                .toList(),
+                            onChanged: (val) => setState(() => _activityLevel = val),
+                            onSaved: (val) => _activityLevel = val,
+                          ),
+                        ),
+
+                        _isLoading
+                            ? Center(child: CircularProgressIndicator(color: AppTheme.primary))
+                            : ElevatedButton(
+                                onPressed: _register,
+                                child: const Text('Register'),
+                              ),
+                      ],
                     ),
                   ),
                 ),

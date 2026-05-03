@@ -4,6 +4,8 @@ import 'dart:developer' as developer;
 import 'package:nutrition_app/models/goal.dart';
 import 'package:nutrition_app/models/log.dart';
 import 'package:nutrition_app/main.dart';
+import 'package:nutrition_app/theme/app_theme.dart';
+import 'package:nutrition_app/widgets/glass_card.dart';
 import 'package:nutrition_app/widgets/calorie_progress_card.dart';
 import 'package:nutrition_app/widgets/macro_progress.dart';
 import 'package:nutrition_app/widgets/meal_card_with_recommendation.dart';
@@ -159,10 +161,27 @@ class HomeScreenState extends State<HomeScreen> {
                 SliverAppBar(
                   expandedHeight: 120.0,
                   pinned: true,
+                  backgroundColor: AppTheme.background,
                   flexibleSpace: FlexibleSpaceBar(
                     title: Text(
                       'Good morning, ${profile['name'] ?? 'User'}!',
-                      style: theme.textTheme.titleLarge,
+                      style: const TextStyle(
+                        fontSize: 24, 
+                        fontWeight: FontWeight.bold, 
+                        color: AppTheme.textPrimary
+                      ),
+                    ),
+                    background: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            AppTheme.primary.withOpacity(0.2),
+                            AppTheme.background,
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -182,41 +201,57 @@ class HomeScreenState extends State<HomeScreen> {
                   ),
                   sliver: SliverToBoxAdapter(
                     child: goal != null
-                        ? Column(
-                            children: [
-                              MacroProgress(
-                                label: 'Protein',
-                                current:
-                                    (totals['protein'] as num?)?.toDouble() ??
-                                    0.0,
-                                goal: goal.proteinGoal,
-                              ),
-                              const SizedBox(height: 16),
-                              MacroProgress(
-                                label: 'Carbs',
-                                current:
-                                    (totals['carbs'] as num?)?.toDouble() ??
-                                    0.0,
-                                goal: goal.carbsGoal,
-                              ),
-                              const SizedBox(height: 16),
-                              MacroProgress(
-                                label: 'Fats',
-                                current:
-                                    (totals['fats'] as num?)?.toDouble() ?? 0.0,
-                                goal: goal.fatsGoal,
-                              ),
-                            ],
+                        ? GlassCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Macro Breakdown', 
+                                  style: TextStyle(
+                                    fontSize: 18, 
+                                    fontWeight: FontWeight.bold, 
+                                    color: AppTheme.textPrimary
+                                  )
+                                ),
+                                const SizedBox(height: 16),
+                                MacroProgress(
+                                  label: 'Protein',
+                                  current:
+                                      (totals['protein'] as num?)?.toDouble() ??
+                                      0.0,
+                                  goal: goal.proteinGoal,
+                                ),
+                                const SizedBox(height: 16),
+                                MacroProgress(
+                                  label: 'Carbs',
+                                  current:
+                                      (totals['carbs'] as num?)?.toDouble() ??
+                                      0.0,
+                                  goal: goal.carbsGoal,
+                                ),
+                                const SizedBox(height: 16),
+                                MacroProgress(
+                                  label: 'Fats',
+                                  current:
+                                      (totals['fats'] as num?)?.toDouble() ?? 0.0,
+                                  goal: goal.fatsGoal,
+                                ),
+                              ],
+                            ),
                           )
-                        : const Text('Set a goal to see macro progress.'),
+                        : const GlassCard(child: Text('Set a goal to see macro progress.', style: TextStyle(color: AppTheme.textPrimary))),
                   ),
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Text(
+                    child: const Text(
                       'Recent meals',
-                      style: theme.textTheme.headlineSmall,
+                      style: TextStyle(
+                        fontSize: 22, 
+                        fontWeight: FontWeight.bold, 
+                        color: AppTheme.textPrimary
+                      ),
                     ),
                   ),
                 ),

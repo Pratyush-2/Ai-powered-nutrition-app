@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
@@ -153,7 +154,8 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
         // Identify food using AI
         _showSnackBar('Analyzing image with AI...');
         try {
-          final result = await apiService.identifyFood(pickedFile.path);
+          final bytes = await pickedFile.readAsBytes();
+          final result = await apiService.identifyFood(bytes, pickedFile.name);
           developer.log('Food identification result: $result');
 
           // Extract food name from result (backend returns 'food_identified')
@@ -210,7 +212,9 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
         // Identify food using AI
         _showSnackBar('Analyzing image with AI...');
         try {
-          final apiResult = await apiService.identifyFood(filePath);
+          // On web, result.files.single.bytes is available. On mobile, we use readAsBytes.
+          final bytes = result.files.single.bytes ?? await File(filePath).readAsBytes();
+          final apiResult = await apiService.identifyFood(bytes, result.files.single.name);
           developer.log('Food identification result: $apiResult');
 
           // Extract food name from result (backend returns 'food_identified')
@@ -658,15 +662,21 @@ class _LogFoodScreenState extends State<LogFoodScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Image with overlay
-                          Stack(
+                           Stack(
                             children: [
-                              Image.file(
-                                File(_image!.path),
-                                height: 200,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              ),
+                              kIsWeb
+                                ? Image.network(
+                                    _image!.path,
+                                    height: 200,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  )
+                                : Image.file(
+                                    File(_image!.path),
+                                    height: 200,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                  ),
                               // Success overlay
                               Positioned.fill(
                                 child: Container(

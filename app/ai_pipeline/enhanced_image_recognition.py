@@ -332,8 +332,10 @@ class IntegratedFoodRecognizer:
         """Improved fallback color-based food recognition"""
         
         try:
-            # Analyze image colors
-            image = Image.open(image_file.file)
+            # Analyze image colors safely
+            image_file.file.seek(0)
+            img_bytes = image_file.file.read()
+            image = Image.open(io.BytesIO(img_bytes))
             if image.mode != 'RGB':
                 image = image.convert('RGB')
             
@@ -505,9 +507,17 @@ class IntegratedFoodRecognizer:
         return best_match
     
     def _get_dominant_colors(self, image: Image.Image, num_colors: int = 3) -> list:
-        """Extract dominant colors from image"""
+        """Extract dominant colors from image (center cropped to avoid background)"""
+        # Crop to center 50% to focus on the food and avoid tables/backgrounds
+        width, height = image.size
+        left = width * 0.25
+        top = height * 0.25
+        right = width * 0.75
+        bottom = height * 0.75
+        image = image.crop((left, top, right, bottom))
+        
         # Resize for faster processing
-        image = image.resize((100, 100))
+        image = image.resize((50, 50))
         pixels = list(image.getdata())
         
         # Count color frequencies

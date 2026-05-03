@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:nutrition_app/services/auth_service.dart';
@@ -56,6 +57,18 @@ class ApiService {
     return data;
   }
 
+  Future<Map<String, dynamic>> googleLogin(String idToken) async {
+    final uri = Uri.parse('$baseUrl/auth/google');
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'idToken': idToken}),
+    );
+    final data = _handleResponse(response);
+    await _authService.saveToken(data['access_token']);
+    return data;
+  }
+
   Future<Map<String, dynamic>> register(Map<String, dynamic> profileData) async {
     final uri = Uri.parse('$baseUrl/auth/register');
     final response = await http.post(
@@ -70,11 +83,15 @@ class ApiService {
     await _authService.deleteToken();
   }
 
-  Future<Map<String, dynamic>> identifyFood(String imagePath) async {
+  Future<Map<String, dynamic>> identifyFood(Uint8List imageBytes, String filename) async {
     final uri = Uri.parse('$baseUrl/ai/identify-food/');
     final request = http.MultipartRequest('POST', uri);
     request.headers.addAll(await _getAuthHeaders());
-    request.files.add(await http.MultipartFile.fromPath('file', imagePath));
+    request.files.add(http.MultipartFile.fromBytes(
+      'file',
+      imageBytes,
+      filename: filename,
+    ));
     final response = await request.send().timeout(const Duration(seconds: 30));
     final responseBody = await response.stream.bytesToString();
 

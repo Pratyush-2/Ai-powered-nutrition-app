@@ -4,6 +4,7 @@ import 'package:nutrition_app/screens/login_screen.dart';
 import 'package:nutrition_app/screens/main_tabs.dart';
 import 'package:nutrition_app/services/api_service.dart';
 import 'package:nutrition_app/services/auth_service.dart';
+import 'package:nutrition_app/theme/app_theme.dart';
 
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
@@ -29,25 +30,9 @@ class NutritionApp extends StatelessWidget {
         return MaterialApp(
           title: 'Nutrition AI',
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-            useMaterial3: true,
-            textTheme: GoogleFonts.interTextTheme(baseTheme.textTheme),
-          ),
-          darkTheme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: Colors.green,
-              brightness: Brightness.dark,
-            ),
-            useMaterial3: true,
-            textTheme: GoogleFonts.interTextTheme(
-              baseTheme.textTheme.apply(
-                bodyColor: Colors.white,
-                displayColor: Colors.white,
-              ),
-            ),
-          ),
-          themeMode: mode,
+          theme: AppTheme.darkTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: ThemeMode.dark,
           home: isLoggedIn ? const MainTabs() : const LoginScreen(),
         );
       },

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nutrition_app/theme/app_theme.dart';
 import 'package:nutrition_app/screens/chat_screen.dart';
 import 'home_screen.dart';
 import 'log_food_screen.dart';
@@ -59,26 +60,43 @@ class _MainTabsState extends State<MainTabs> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateAndRefresh,
-        child: const Icon(Icons.add),
+        backgroundColor: AppTheme.primary,
+        foregroundColor: Colors.white,
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: const Icon(Icons.add, size: 28),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
-        notchMargin: 8.0,
-        child: BottomNavigationBar(
-          currentIndex: _index,
-          onTap: (i) => setState(() => _index = i),
-          type: BottomNavigationBarType.fixed,
-          selectedFontSize: 12.0,
-          unselectedFontSize: 10.0,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.history), label: 'History'),
-            // Placeholder for the FAB to center the other items
-            BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
-            BottomNavigationBarItem(icon: Icon(Icons.flag), label: 'Goals'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-          ],
+        notchMargin: 10.0,
+        color: AppTheme.surface,
+        elevation: 0,
+        padding: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: AppTheme.glassBorder, width: 1)),
+          ),
+          child: BottomNavigationBar(
+            currentIndex: _index,
+            onTap: (i) => setState(() => _index = i),
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: AppTheme.surface,
+            selectedItemColor: AppTheme.primary,
+            unselectedItemColor: AppTheme.textSecondary,
+            selectedFontSize: 12.0,
+            unselectedFontSize: 10.0,
+            elevation: 0,
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
+              BottomNavigationBarItem(icon: Icon(Icons.history_outlined), activeIcon: Icon(Icons.history), label: 'History'),
+              // Placeholder for the FAB to center the other items
+              BottomNavigationBarItem(icon: SizedBox.shrink(), label: ''),
+              BottomNavigationBarItem(icon: Icon(Icons.flag_outlined), activeIcon: Icon(Icons.flag), label: 'Goals'),
+              BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'Profile'),
+            ],
+          ),
         ),
       ),
     );
